@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 type RedditSubmission struct {
@@ -107,6 +108,7 @@ func main() {
 		input = file
 	}
 
+	start := time.Now()
 	scanner := bufio.NewScanner(input)
 	postCount := 0
 	commentCount := 0
@@ -166,4 +168,7 @@ func main() {
 		postCount, totalPostScore, postAvg)
 	fmt.Printf("Processed %d comments with total score %d (average: %.2f)\n",
 		commentCount, totalCommentScore, commentAvg)
+
+	elapsed := time.Since(start)
+	fmt.Printf("Processing time: %v\n", elapsed)
 }
