@@ -151,8 +151,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Compute averages safely
+	postAvg := 0.0
+	if postCount > 0 {
+		postAvg = float64(totalPostScore) / float64(postCount)
+	}
+
+	commentAvg := 0.0
+	if commentCount > 0 {
+		commentAvg = float64(totalCommentScore) / float64(commentCount)
+	}
+
 	fmt.Printf("\nProcessed %d posts with total score %d (average: %.2f)\n",
-		postCount, totalPostScore, float64(totalPostScore)/float64(postCount))
+		postCount, totalPostScore, postAvg)
 	fmt.Printf("Processed %d comments with total score %d (average: %.2f)\n",
-		commentCount, totalCommentScore, float64(totalCommentScore)/float64(commentCount))
+		commentCount, totalCommentScore, commentAvg)
 }
