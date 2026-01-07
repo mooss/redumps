@@ -67,20 +67,32 @@ func truncate(s string, maxLen int) string {
 
 // detectType checks for the presence of specific fields to determine the type.
 func detectType(line string) (string, error) {
-	type temp struct {
-		Title json.RawMessage `json:"title"`
-		Body  json.RawMessage `json:"body"`
+	// Check for "title" or "body" field by scanning the raw JSON.
+	// This is faster than unmarshaling into a struct and should be correct while there is no nested
+	// data.
+	titleIdx := -1
+	bodyIdx := -1
+
+	for i := 0; i < len(line)-8; i++ {
+		if line[i] == '"' && line[i+1:i+7] == "title\"" && line[i+7] == ':' &&
+			(i == 0 || line[i-1] != '\\') /* Make sure the string is not escaped */ {
+			titleIdx = i
+			break
+		}
 	}
 
-	var t temp
-	if err := json.Unmarshal([]byte(line), &t); err != nil {
-		return "", err
+	for i := 0; i < len(line)-7; i++ {
+		if line[i] == '"' && line[i+1:i+6] == "body\"" && line[i+6] == ':' &&
+			(i == 0 || line[i-1] != '\\') /* Make sure the string is not escaped */ {
+			bodyIdx = i
+			break
+		}
 	}
 
-	if t.Title != nil {
+	if titleIdx != -1 && (bodyIdx == -1 || titleIdx < bodyIdx) {
 		return "post", nil
 	}
-	if t.Body != nil {
+	if bodyIdx != -1 {
 		return "comment", nil
 	}
 	return "unknown", nil
