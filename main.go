@@ -15,6 +15,54 @@ type RedditSubmission struct {
 	NumComments int    `json:"num_comments"`
 }
 
+type RedditComment struct {
+	ID         string `json:"id"`
+	Author     string `json:"author"`
+	Body       string `json:"body"`
+	Score      int    `json:"score"`
+	ParentID   string `json:"parent_id"`
+	LinkID     string `json:"link_id"`
+	Subreddit  string `json:"subreddit"`
+	CreatedUTC string `json:"created_utc"`
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// detectType checks for the presence of specific fields to determine the type.
+func detectType(data map[string]any) string {
+	if _, ok := data["title"]; ok {
+		return "post"
+	}
+	if _, ok := data["body"]; ok {
+		return "comment"
+	}
+	return "unknown"
+}
+
+func processPost(line string, postCount int) (int, error) {
+	var post RedditSubmission
+	if err := json.Unmarshal([]byte(line), &post); err != nil {
+		return 0, err
+	}
+	fmt.Printf("Post #%d: %s (Score: %d)\n", postCount, post.Title, post.Score)
+	return post.Score, nil
+}
+
+func processComment(line string, commentCount int) (int, error) {
+	var comment RedditComment
+	if err := json.Unmarshal([]byte(line), &comment); err != nil {
+		return 0, err
+	}
+	bodyPreview := truncate(comment.Body, 50)
+	fmt.Printf("Comment #%d by %s: %s (Score: %d)\n", commentCount, comment.Author, bodyPreview, comment.Score)
+	return comment.Score, nil
+}
+
 func main() {
 	// Default to reading from stdin if no file provided.
 	input := os.Stdin
@@ -30,19 +78,41 @@ func main() {
 
 	scanner := bufio.NewScanner(input)
 	postCount := 0
-	totalScore := 0
+	commentCount := 0
+	totalPostScore := 0
+	totalCommentScore := 0
 
-	for scanner.Scan() { // Trivial proof-of-concept: count posts and sum scores.
+	for scanner.Scan() {
 		line := scanner.Text()
-		var post RedditSubmission
-		if err := json.Unmarshal([]byte(line), &post); err != nil {
+
+		// First, unmarshal into a map to check for the presence of fields.
+		var data map[string]any
+		if err := json.Unmarshal([]byte(line), &data); err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing JSON: %v\n", err)
 			continue
 		}
 
-		postCount++
-		totalScore += post.Score
-		fmt.Printf("Post #%d: %s (Score: %d)\n", postCount, post.Title, post.Score)
+		itemType := detectType(data)
+		switch itemType {
+		case "post":
+			score, err := processPost(line, postCount+1)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error processing post: %v\n", err)
+			} else {
+				postCount++
+				totalPostScore += score
+			}
+		case "comment":
+			score, err := processComment(line, commentCount+1)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error processing comment: %v\n", err)
+			} else {
+				commentCount++
+				totalCommentScore += score
+			}
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown item type: %s\n", line)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -51,5 +121,7 @@ func main() {
 	}
 
 	fmt.Printf("\nProcessed %d posts with total score %d (average: %.2f)\n",
-		postCount, totalScore, float64(totalScore)/float64(postCount))
+		postCount, totalPostScore, float64(totalPostScore)/float64(postCount))
+	fmt.Printf("Processed %d comments with total score %d (average: %.2f)\n",
+		commentCount, totalCommentScore, float64(totalCommentScore)/float64(commentCount))
 }
