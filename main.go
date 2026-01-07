@@ -66,14 +66,24 @@ func truncate(s string, maxLen int) string {
 }
 
 // detectType checks for the presence of specific fields to determine the type.
-func detectType(data map[string]any) string {
-	if _, ok := data["title"]; ok {
-		return "post"
+func detectType(line string) (string, error) {
+	type temp struct {
+		Title json.RawMessage `json:"title"`
+		Body  json.RawMessage `json:"body"`
 	}
-	if _, ok := data["body"]; ok {
-		return "comment"
+
+	var t temp
+	if err := json.Unmarshal([]byte(line), &t); err != nil {
+		return "", err
 	}
-	return "unknown"
+
+	if t.Title != nil {
+		return "post", nil
+	}
+	if t.Body != nil {
+		return "comment", nil
+	}
+	return "unknown", nil
 }
 
 func processPost(line string, postCount int) (int, error) {
@@ -118,14 +128,12 @@ func main() {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// First, unmarshal into a map to check for the presence of fields.
-		var data map[string]any
-		if err := json.Unmarshal([]byte(line), &data); err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing JSON: %v\n", err)
+		itemType, err := detectType(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error detecting type: %v\n", err)
 			continue
 		}
 
-		itemType := detectType(data)
 		switch itemType {
 		case "post":
 			score, err := processPost(line, postCount+1)
@@ -153,7 +161,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Compute averages safely
 	postAvg := 0.0
 	if postCount > 0 {
 		postAvg = float64(totalPostScore) / float64(postCount)
