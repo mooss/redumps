@@ -14,6 +14,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s <command> [options]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  process - Process a reddit dump file\n")
+		fmt.Fprintf(os.Stderr, "  fields  - Count fields in JSON objects\n")
 		os.Exit(1)
 	}
 
@@ -23,12 +24,18 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Usage: %s process dumpfile\n", os.Args[0])
 			os.Exit(1)
 		}
-
 		filename := os.Args[2]
 		runProcess(filename)
+	case "fields":
+		if len(os.Args) != 3 {
+			fmt.Fprintf(os.Stderr, "Usage: %s fields dumpfile\n", os.Args[0])
+			os.Exit(1)
+		}
+		filename := os.Args[2]
+		runFields(filename)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
-		fmt.Fprintf(os.Stderr, "Available commands: process\n")
+		fmt.Fprintf(os.Stderr, "Available commands: process, fields\n")
 		os.Exit(1)
 	}
 }
@@ -60,6 +67,29 @@ func runProcess(filename string) {
 		fmt.Fprintf(os.Stderr, "Error: filename must end with '_comments' or '_submissions' to determine processor type\n")
 		os.Exit(1)
 	}
+
+	if err := proc.Process(scanner); err != nil {
+		fmt.Fprintf(os.Stderr, "Error during processing: %v\n", err)
+		os.Exit(1)
+	}
+	proc.Report()
+
+	elapsed := time.Since(startTime)
+	fmt.Printf("Processing time: %v\n", elapsed)
+}
+
+func runFields(filename string) {
+	file, err := os.Open(filename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	startTime := time.Now()
+	scanner := bufio.NewScanner(file)
+
+	proc := &dumps.FieldsProcessor{}
 
 	if err := proc.Process(scanner); err != nil {
 		fmt.Fprintf(os.Stderr, "Error during processing: %v\n", err)

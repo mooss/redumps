@@ -69,18 +69,13 @@ func (p *BaseProcessor) PrintErrorSummary() {
 	}
 }
 
-// IncrementCount increments the count and adds to score sum
+// IncrementCount increments the count and adds to score sum.
 func (p *BaseProcessor) IncrementCount(score int) {
 	p.count++
 	p.scoreSum += score
 }
 
-// GetScoreSum returns the current score sum
-func (p *BaseProcessor) GetScoreSum() int {
-	return p.scoreSum
-}
-
-// truncate is a utility function to shorten strings for display
+// truncate is a utility function to shorten strings for display.
 func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
