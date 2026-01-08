@@ -1,7 +1,7 @@
 .PHONY: build clean
 
 build:
-	go build -o redditprocessor main.go
+	go build -o redumps main.go
 
 clean:
-	rm redditprocessor
+	rm redumps
