@@ -52,22 +52,22 @@ func (c *RedditComment) UnmarshalJSON(data []byte) error {
 ///////////////
 // Processor //
 
-type CommentProcessor struct {
+type CommentStats struct {
 	BaseProcessor
 }
 
-func (p *CommentProcessor) Process(scanner *bufio.Scanner) error {
+func (p *CommentStats) Process(scanner *bufio.Scanner) error {
 	return p.process(scanner, p.processComment)
 }
 
-func (p *CommentProcessor) Report() {
+func (p *CommentStats) Report() {
 	p.BaseProcessor.Report("comments")
 }
 
-func (p *CommentProcessor) processComment(line string) error {
+func (p *CommentStats) processComment(line string) error {
 	var comment RedditComment
 	if err := json.Unmarshal([]byte(line), &comment); err != nil {
-		return errs.Prefix(err, "process comment")
+		return errs.Prefix(err, "comment stats")
 	}
 
 	bodyPreview := truncate(comment.Body, 50)

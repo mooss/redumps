@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"redumps/dumps"
@@ -9,33 +10,42 @@ import (
 	"time"
 )
 
+func usagef(msg ...string) {
+	fmt.Fprint(os.Stderr, "Usage: ", strings.Join(msg, " "))
+	os.Exit(1)
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <command> [options]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  process - Process a reddit dump file\n")
-		fmt.Fprintf(os.Stderr, "  fields  - Count fields in JSON objects\n")
+		fmt.Fprintf(os.Stderr, "  stats  - Compute stats\n")
+		fmt.Fprintf(os.Stderr, "  fields - Count fields\n")
 		os.Exit(1)
 	}
 
+	var cmderr error
+
 	switch os.Args[1] {
-	case "process":
+	case "stats":
 		if len(os.Args) != 3 {
-			fmt.Fprintf(os.Stderr, "Usage: %s process dumpfile\n", os.Args[0])
-			os.Exit(1)
+			usagef(os.Args[0], "process dumpfile")
 		}
-		filename := os.Args[2]
-		runProcess(filename)
+		cmderr = runStats(os.Args[2])
 	case "fields":
 		if len(os.Args) != 3 {
-			fmt.Fprintf(os.Stderr, "Usage: %s fields dumpfile\n", os.Args[0])
-			os.Exit(1)
+			usagef(os.Args[0], "fields dumpfile")
+			break
 		}
-		filename := os.Args[2]
-		runFields(filename)
+		cmderr = process(os.Args[2], &dumps.FieldsProcessor{})
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
-		fmt.Fprintf(os.Stderr, "Available commands: process, fields\n")
+		fmt.Fprintf(os.Stderr, "Available commands: stats, fields\n")
+		os.Exit(1)
+	}
+
+	if cmderr != nil {
+		fmt.Fprint(os.Stderr, cmderr, "\n")
 		os.Exit(1)
 	}
 }
@@ -45,58 +55,33 @@ type processor interface {
 	Report()
 }
 
-func runProcess(filename string) {
+// Helper function to factor out common processing logic.
+func process(filename string, proc processor) error {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	startTime := time.Now()
 	scanner := bufio.NewScanner(file)
 
-	var proc processor
-
-	switch {
-	case strings.HasSuffix(filename, "_comments"):
-		proc = &dumps.CommentProcessor{}
-	case strings.HasSuffix(filename, "_submissions"):
-		proc = &dumps.SubmissionProcessor{}
-	default:
-		fmt.Fprintf(os.Stderr, "Error: filename must end with '_comments' or '_submissions' to determine processor type\n")
-		os.Exit(1)
-	}
-
 	if err := proc.Process(scanner); err != nil {
-		fmt.Fprintf(os.Stderr, "Error during processing: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error during processing: %w", err)
 	}
 	proc.Report()
 
 	elapsed := time.Since(startTime)
 	fmt.Printf("Processing time: %v\n", elapsed)
+	return nil
 }
 
-func runFields(filename string) {
-	file, err := os.Open(filename)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
-		os.Exit(1)
+func runStats(filename string) error {
+	if strings.HasSuffix(filename, "_comments") {
+		return process(filename, &dumps.CommentStats{})
+	} else if strings.HasSuffix(filename, "_submissions") {
+		return process(filename, &dumps.SubmissionStats{})
 	}
-	defer file.Close()
 
-	startTime := time.Now()
-	scanner := bufio.NewScanner(file)
-
-	proc := &dumps.FieldsProcessor{}
-
-	if err := proc.Process(scanner); err != nil {
-		fmt.Fprintf(os.Stderr, "Error during processing: %v\n", err)
-		os.Exit(1)
-	}
-	proc.Report()
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("Processing time: %v\n", elapsed)
+	return errors.New("Error: filename must end with '_comments' or '_submissions' to determine stats type")
 }

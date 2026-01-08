@@ -18,22 +18,22 @@ type RedditSubmission struct {
 ///////////////
 // Processor //
 
-type SubmissionProcessor struct {
+type SubmissionStats struct {
 	BaseProcessor
 }
 
-func (p *SubmissionProcessor) Process(scanner *bufio.Scanner) error {
+func (p *SubmissionStats) Process(scanner *bufio.Scanner) error {
 	return p.process(scanner, p.processSubmission)
 }
 
-func (p *SubmissionProcessor) Report() {
+func (p *SubmissionStats) Report() {
 	p.BaseProcessor.Report("submissions")
 }
 
-func (p *SubmissionProcessor) processSubmission(line string) error {
+func (p *SubmissionStats) processSubmission(line string) error {
 	var post RedditSubmission
 	if err := json.Unmarshal([]byte(line), &post); err != nil {
-		return errs.Prefix(err, "process submission")
+		return errs.Prefix(err, "submission stats")
 	}
 
 	p.IncrementCount(post.Score)
