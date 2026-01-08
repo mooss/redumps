@@ -4,8 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
-	"sort"
+	"redumps/errs"
 )
 
 type RedditComment struct {
@@ -54,79 +53,25 @@ func (c *RedditComment) UnmarshalJSON(data []byte) error {
 // Processor //
 
 type CommentProcessor struct {
-	count       int
-	scoreSum    int
-	errorCounts map[string]int
-}
-
-func (p *CommentProcessor) ProcessLine(line string) error {
-	score, err := p.processComment(line, p.count+1)
-	if err != nil {
-		return fmt.Errorf("process comment: %w", err)
-	}
-	p.count++
-	p.scoreSum += score
-	return nil
+	BaseProcessor
 }
 
 func (p *CommentProcessor) Process(scanner *bufio.Scanner) error {
-	if p.errorCounts == nil {
-		p.errorCounts = make(map[string]int)
-	}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if err := p.ProcessLine(line); err != nil {
-			p.errorCounts[err.Error()]++
-			// Continue processing next lines.
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("scanner error: %w", err)
-	}
-	return nil
+	return p.process(scanner, p.processComment)
 }
 
 func (p *CommentProcessor) Report() {
-	commentAvg := 0.0
-	if p.count > 0 {
-		commentAvg = float64(p.scoreSum) / float64(p.count)
-	}
-
-	fmt.Printf("\nProcessed %d comments with total score %d (average: %.2f)\n",
-		p.count, p.scoreSum, commentAvg)
-	p.PrintErrorSummary()
+	p.BaseProcessor.Report("comments")
 }
 
-func (p *CommentProcessor) PrintErrorSummary() {
-	if len(p.errorCounts) == 0 {
-		return
-	}
-
-	// Convert to slice for sorting.
-	type kv struct {
-		msg   string
-		count int
-	}
-	var errs []kv
-	for msg, cnt := range p.errorCounts {
-		errs = append(errs, kv{msg, cnt})
-	}
-
-	sort.Slice(errs, func(i, j int) bool { return errs[i].count > errs[j].count })
-	fmt.Fprintf(os.Stderr, "\nError summary (most frequent first):\n")
-	for _, e := range errs {
-		fmt.Fprintf(os.Stderr, "%d occurrences: %s\n", e.count, e.msg)
-	}
-}
-
-func (p *CommentProcessor) processComment(line string, commentCount int) (int, error) {
+func (p *CommentProcessor) processComment(line string) error {
 	var comment RedditComment
 	if err := json.Unmarshal([]byte(line), &comment); err != nil {
-		return 0, err
+		return errs.Prefix(err, "process comment")
 	}
+
 	bodyPreview := truncate(comment.Body, 50)
-	fmt.Printf("Comment #%d by %s: %s (Score: %d)\n", commentCount, comment.Author, bodyPreview, comment.Score)
-	return comment.Score, nil
+	p.IncrementCount(comment.Score)
+	fmt.Printf("Comment #%d by %s: %s (Score: %d)\n", p.count, comment.Author, bodyPreview, comment.Score)
+	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"redditprocessor/dumps"
+	"redumps/dumps"
 	"strings"
 	"time"
 )
