@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type Processor struct {
 	totalPostScore    int
 	totalCommentScore int
 	startTime         time.Time
+	errorCounts       map[string]int
 }
 
 func (p *Processor) ProcessLine(line string) error {
@@ -47,10 +49,14 @@ func (p *Processor) ProcessLine(line string) error {
 }
 
 func (p *Processor) Process(scanner *bufio.Scanner) error {
+	if p.errorCounts == nil {
+		p.errorCounts = make(map[string]int)
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := p.ProcessLine(line); err != nil {
-			fmt.Fprintf(os.Stderr, "Error processing line: %v\n", err)
+			p.errorCounts[err.Error()]++
 			// Continue processing next lines.
 		}
 	}
@@ -65,14 +71,39 @@ func (p *Processor) Report() {
 	if p.postCount > 0 {
 		postAvg = float64(p.totalPostScore) / float64(p.postCount)
 	}
+
 	commentAvg := 0.0
 	if p.commentCount > 0 {
 		commentAvg = float64(p.totalCommentScore) / float64(p.commentCount)
 	}
+
 	fmt.Printf("\nProcessed %d posts with total score %d (average: %.2f)\n",
 		p.postCount, p.totalPostScore, postAvg)
 	fmt.Printf("Processed %d comments with total score %d (average: %.2f)\n",
 		p.commentCount, p.totalCommentScore, commentAvg)
+	p.PrintErrorSummary()
+}
+
+func (p *Processor) PrintErrorSummary() {
+	if len(p.errorCounts) == 0 {
+		return
+	}
+
+	// Convert to slice for sorting.
+	type kv struct {
+		msg   string
+		count int
+	}
+	var errs []kv
+	for msg, cnt := range p.errorCounts {
+		errs = append(errs, kv{msg, cnt})
+	}
+
+	sort.Slice(errs, func(i, j int) bool { return errs[i].count > errs[j].count })
+	fmt.Fprintf(os.Stderr, "\nError summary (most frequent first):\n")
+	for _, e := range errs {
+		fmt.Fprintf(os.Stderr, "%d occurrences: %s\n", e.count, e.msg)
+	}
 }
 
 ///////////////////////
