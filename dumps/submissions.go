@@ -14,13 +14,13 @@ type SubmissionScores struct {
 	BaseScores
 }
 
-func (sco *SubmissionScores) Process(line string) error {
-	title, err := jsonparser.GetString([]byte(line), "title")
+func (sco *SubmissionScores) Process(data []byte) error {
+	title, err := jsonparser.GetString(data, "title")
 	if err != nil && err != jsonparser.KeyPathNotFoundError {
 		return errs.Prefix(err, "submission stats")
 	}
 
-	score, err := jsonparser.GetInt([]byte(line), "score")
+	score, err := jsonparser.GetInt(data, "score")
 	if err != nil {
 		return err
 	}

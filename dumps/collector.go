@@ -15,14 +15,13 @@ type Collector struct {
 
 // Collect feeds every line from scanner into processor.
 // Lines that processor rejects are tallied, not propagated.
-func (coll *Collector) Collect(scanner *bufio.Scanner, processor func(string) error) error {
+func (coll *Collector) Collect(scanner *bufio.Scanner, processor func([]byte) error) error {
 	if coll.errorCounts == nil {
 		coll.errorCounts = make(map[string]int)
 	}
 
 	for scanner.Scan() {
-		line := scanner.Text()
-		if err := processor(line); err != nil {
+		if err := processor(scanner.Bytes()); err != nil {
 			coll.ReportError(err)
 		}
 	}

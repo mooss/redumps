@@ -15,8 +15,7 @@ type FieldsProcessor struct {
 }
 
 // Process processes a single JSON line.
-func (p *FieldsProcessor) Process(line string) error {
-	data := []byte(line)
+func (p *FieldsProcessor) Process(data []byte) error {
 	if p.fieldCounts == nil {
 		p.fieldCounts = make(map[string]int)
 	}

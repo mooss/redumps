@@ -92,7 +92,7 @@ func chrono() func() {
 }
 
 type processor interface {
-	Process(string) error
+	Process([]byte) error
 	Report()
 }
 

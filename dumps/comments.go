@@ -13,9 +13,7 @@ type CommentScores struct {
 	BaseScores
 }
 
-func (sco *CommentScores) Process(line string) error {
-	data := []byte(line)
-
+func (sco *CommentScores) Process(data []byte) error {
 	author, _ := jsonparser.GetString(data, "author")
 	body, _ := jsonparser.GetString(data, "body")
 	score, err := jsonparser.GetInt(data, "score")
