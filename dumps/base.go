@@ -20,6 +20,10 @@ func (p *BaseProcessor) process(scanner *bufio.Scanner, processor func(string) e
 		p.errorCounts = make(map[string]int)
 	}
 
+	// Increase initial and maximum size to handle long comments and submissions.
+	// Initial buffer: 1MB, max buffer: 10MB.
+	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := processor(line); err != nil {
