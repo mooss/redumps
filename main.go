@@ -73,7 +73,7 @@ type processor interface {
 func process(filenames []string, proc processor) error {
 	defer chrono()()
 
-	collector := dumps.BaseProcessor{}
+	collector := dumps.Collector{}
 	initialBuffer := make([]byte, 1024*1024)
 
 	for _, filename := range filenames {

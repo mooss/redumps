@@ -7,13 +7,15 @@ import (
 	"sort"
 )
 
-// BaseProcessor provides common fields and methods for processing Reddit data.
-type BaseProcessor struct {
+// Collector helps processing data using a line-oriented pipeline: read, transform, accumulate.
+// While running it silently tallies errors occuring during processing.
+type Collector struct {
 	errorCounts map[string]int
 }
 
-// Collect applies a processing function to each line of the given scanner.
-func (proc *BaseProcessor) Collect(scanner *bufio.Scanner, processor func(string) error) error {
+// Collect feeds every line from scanner into processor.
+// Lines that processor rejects are tallied, not propagated.
+func (proc *Collector) Collect(scanner *bufio.Scanner, processor func(string) error) error {
 	if proc.errorCounts == nil {
 		proc.errorCounts = make(map[string]int)
 	}
@@ -21,8 +23,6 @@ func (proc *BaseProcessor) Collect(scanner *bufio.Scanner, processor func(string
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := processor(line); err != nil {
-			// Parsing can be error-prone when the data is not sanitized, so a processing error is
-			// not fatal.
 			proc.ReportError(err)
 		}
 	}
@@ -33,17 +33,16 @@ func (proc *BaseProcessor) Collect(scanner *bufio.Scanner, processor func(string
 	return nil
 }
 
-func (proc *BaseProcessor) ReportError(err error) {
+func (proc *Collector) ReportError(err error) {
 	proc.errorCounts[err.Error()]++
 }
 
-// PrintErrorSummary prints error statistics.
-func (proc *BaseProcessor) PrintErrorSummary() {
+// PrintErrorSummary dumps the tally of problems encountered.
+func (proc *Collector) PrintErrorSummary() {
 	if len(proc.errorCounts) == 0 {
 		return
 	}
 
-	// Convert to slice for sorting.
 	type kv struct {
 		msg   string
 		count int
