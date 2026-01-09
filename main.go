@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"redumps/conv"
 	"redumps/dumps"
 	"runtime/pprof"
 	"strings"
@@ -84,10 +85,13 @@ func main() {
 	}
 }
 
-func chrono() func() {
+func chrono(collector *dumps.Collector) func() {
 	start := time.Now()
 	return func() {
-		fmt.Printf("Processing time: %v\n", time.Since(start))
+		mib := conv.ToMiB(float64(collector.BytesProcessed))
+		elapsed := time.Since(start).Seconds()
+		throughput := conv.ToMiB(float64(collector.BytesProcessed) / elapsed)
+		fmt.Printf("%s MiB processed in %.1fs (%s MiB/s)\n", mib, elapsed, throughput)
 	}
 }
 
@@ -98,9 +102,8 @@ type processor interface {
 
 // Helper function to factor out common processing logic.
 func process(filenames []string, proc processor) error {
-	defer chrono()()
-
 	collector := dumps.Collector{}
+	defer chrono(&collector)()
 	initialBuffer := make([]byte, 1024*1024)
 
 	for _, filename := range filenames {

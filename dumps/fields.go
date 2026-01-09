@@ -26,7 +26,7 @@ func (p *FieldsProcessor) Process(data []byte) error {
 	})
 
 	if err != nil {
-		return errs.Prefix(err, "parse JSON object")
+		return errs.Prefix(err, "parse JSON fields")
 	}
 
 	p.totalObjects++

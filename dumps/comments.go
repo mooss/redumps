@@ -18,7 +18,7 @@ func (sco *CommentScores) Process(data []byte) error {
 	body, _ := jsonparser.GetString(data, "body")
 	score, err := jsonparser.GetInt(data, "score")
 	if err != nil {
-		score = 0
+		return err
 	}
 
 	sco.process(int(score))

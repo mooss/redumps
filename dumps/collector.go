@@ -10,7 +10,8 @@ import (
 // Collector helps processing data using a line-oriented pipeline: read, transform, accumulate.
 // While running it silently tallies errors occurring during processing.
 type Collector struct {
-	errorCounts map[string]int
+	errorCounts    map[string]int
+	BytesProcessed int64
 }
 
 // Collect feeds every line from scanner into processor.
@@ -21,8 +22,11 @@ func (coll *Collector) Collect(scanner *bufio.Scanner, processor func([]byte) er
 	}
 
 	for scanner.Scan() {
-		if err := processor(scanner.Bytes()); err != nil {
+		data := scanner.Bytes()
+		if err := processor(data); err != nil {
 			coll.ReportError(err)
+		} else {
+			coll.BytesProcessed += int64(len(data))
 		}
 	}
 
