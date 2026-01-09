@@ -1,7 +1,6 @@
 package dumps
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"redumps/errs"
@@ -52,26 +51,32 @@ func (c *RedditComment) UnmarshalJSON(data []byte) error {
 ///////////////
 // Processor //
 
-type CommentStats struct {
-	BaseProcessor
+type CommentScores struct {
+	BaseScores
 }
 
-func (p *CommentStats) Process(scanner *bufio.Scanner) error {
-	return p.process(scanner, p.processComment)
-}
-
-func (p *CommentStats) Report() {
-	p.BaseProcessor.Report("comments")
-}
-
-func (p *CommentStats) processComment(line string) error {
+func (sco *CommentScores) Process(line string) error {
 	var comment RedditComment
 	if err := json.Unmarshal([]byte(line), &comment); err != nil {
 		return errs.Prefix(err, "comment stats")
 	}
 
-	bodyPreview := truncate(comment.Body, 50)
-	p.IncrementCount(comment.Score)
-	fmt.Printf("Comment #%d by %s: %s (Score: %d)\n", p.count, comment.Author, bodyPreview, comment.Score)
+	sco.process(comment.Score)
+	fmt.Printf(
+		"Comment #%d by %s: %s (Score: %d)\n",
+		sco.count, comment.Author, truncate(comment.Body, 50), comment.Score,
+	)
+
 	return nil
+}
+
+///////////////////////
+// Utility functions //
+
+// truncate is a utility function to shorten strings for display.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

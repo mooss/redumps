@@ -43,7 +43,6 @@ func main() {
 	case "fields":
 		if len(args) < 1 {
 			usagef(binary, "fields dumpfile [dumpfile...]")
-			break
 		}
 		cmderr = process(args, &dumps.FieldsProcessor{})
 	default:
@@ -58,12 +57,6 @@ func main() {
 	}
 }
 
-type processor interface {
-	Process(*bufio.Scanner) error
-	ReportError(error)
-	Report()
-}
-
 func chrono() func() {
 	start := time.Now()
 	return func() {
@@ -71,9 +64,18 @@ func chrono() func() {
 	}
 }
 
+type processor interface {
+	Process(string) error
+	Report()
+}
+
 // Helper function to factor out common processing logic.
 func process(filenames []string, proc processor) error {
 	defer chrono()()
+
+	collector := dumps.BaseProcessor{}
+	initialBuffer := make([]byte, 1024*1024)
+
 	for _, filename := range filenames {
 		file, err := os.Open(filename)
 		if err != nil {
@@ -81,20 +83,24 @@ func process(filenames []string, proc processor) error {
 		}
 		defer file.Close()
 
+		// Increase initial and maximum size to handle long comments and submissions.
+		// Initial buffer: 1MB, max buffer: 10MB.
 		scanner := bufio.NewScanner(file)
-		if err := proc.Process(scanner); err != nil {
+		scanner.Buffer(initialBuffer, 10*1024*1024)
+
+		if err := collector.Collect(scanner, proc.Process); err != nil {
 			// To avoid throwing away a processing session, errors are just reported and not fatal.
-			proc.ReportError(fmt.Errorf("error during processing: %w", err))
+			collector.ReportError(fmt.Errorf("error during processing: %w", err))
 		}
 	}
 
+	collector.PrintErrorSummary()
 	proc.Report()
 	return nil
 }
 
 func runStats(filenames []string) error {
 	var (
-		proc        processor
 		comments    int
 		submissions int
 		others      int
@@ -113,12 +119,13 @@ func runStats(filenames []string) error {
 
 	switch {
 	case comments > 0 && submissions == 0 && others == 0:
-		proc = &dumps.CommentStats{}
+		return process(filenames, &dumps.CommentScores{})
 	case comments == 0 && submissions > 0 && others == 0:
-		proc = &dumps.SubmissionStats{}
-	default:
-		return fmt.Errorf("filenames must all end with '_comments' or '_submissions' to determine stats type (got %d comments %d submissions and %d others)", comments, submissions, others)
+		return process(filenames, &dumps.SubmissionScores{})
 	}
 
-	return process(filenames, proc)
+	return fmt.Errorf(
+		"filenames must all end with '_comments' or '_submissions' to determine stats type (got %d comments %d submissions and %d others)",
+		comments, submissions, others,
+	)
 }

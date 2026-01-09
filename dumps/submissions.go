@@ -1,7 +1,6 @@
 package dumps
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"redumps/errs"
@@ -18,25 +17,17 @@ type RedditSubmission struct {
 ///////////////
 // Processor //
 
-type SubmissionStats struct {
-	BaseProcessor
+type SubmissionScores struct {
+	BaseScores
 }
 
-func (p *SubmissionStats) Process(scanner *bufio.Scanner) error {
-	return p.process(scanner, p.processSubmission)
-}
-
-func (p *SubmissionStats) Report() {
-	p.BaseProcessor.Report("submissions")
-}
-
-func (p *SubmissionStats) processSubmission(line string) error {
+func (sco *SubmissionScores) Process(line string) error {
 	var post RedditSubmission
 	if err := json.Unmarshal([]byte(line), &post); err != nil {
 		return errs.Prefix(err, "submission stats")
 	}
 
-	p.IncrementCount(post.Score)
-	fmt.Printf("Submission #%d: %s (Score: %d)\n", p.count, post.Title, post.Score)
+	sco.process(post.Score)
+	fmt.Printf("Submission #%d: %s (Score: %d)\n", sco.count, post.Title, post.Score)
 	return nil
 }
