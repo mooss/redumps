@@ -27,8 +27,9 @@ func (p *BaseProcessor) process(scanner *bufio.Scanner, processor func(string) e
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := processor(line); err != nil {
-			p.errorCounts[err.Error()]++
-			// Continue processing next lines.
+			// Parsing can be error-prone when the data is not sanitized, so a processing error is
+			// not fatal.
+			p.ReportError(err)
 		}
 	}
 
@@ -36,6 +37,10 @@ func (p *BaseProcessor) process(scanner *bufio.Scanner, processor func(string) e
 		return fmt.Errorf("scanner error: %w", err)
 	}
 	return nil
+}
+
+func (p *BaseProcessor) ReportError(err error) {
+	p.errorCounts[err.Error()]++
 }
 
 // Report prints processing statistics.

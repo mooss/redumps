@@ -51,6 +51,7 @@ func main() {
 
 type processor interface {
 	Process(*bufio.Scanner) error
+	ReportError(error)
 	Report()
 }
 
@@ -69,13 +70,12 @@ func process(filenames []string, proc processor) error {
 		if err != nil {
 			return fmt.Errorf("error opening file: %w", err)
 		}
+		defer file.Close()
+
 		scanner := bufio.NewScanner(file)
 		if err := proc.Process(scanner); err != nil {
-			file.Close()
-			return fmt.Errorf("error during processing: %w", err)
-		}
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("error closing file: %w", err)
+			// To avoid throwing away a processing session, errors are just reported and not fatal.
+			proc.ReportError(fmt.Errorf("error during processing: %w", err))
 		}
 	}
 
