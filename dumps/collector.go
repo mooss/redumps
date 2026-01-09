@@ -8,22 +8,22 @@ import (
 )
 
 // Collector helps processing data using a line-oriented pipeline: read, transform, accumulate.
-// While running it silently tallies errors occuring during processing.
+// While running it silently tallies errors occurring during processing.
 type Collector struct {
 	errorCounts map[string]int
 }
 
 // Collect feeds every line from scanner into processor.
 // Lines that processor rejects are tallied, not propagated.
-func (proc *Collector) Collect(scanner *bufio.Scanner, processor func(string) error) error {
-	if proc.errorCounts == nil {
-		proc.errorCounts = make(map[string]int)
+func (coll *Collector) Collect(scanner *bufio.Scanner, processor func(string) error) error {
+	if coll.errorCounts == nil {
+		coll.errorCounts = make(map[string]int)
 	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if err := processor(line); err != nil {
-			proc.ReportError(err)
+			coll.ReportError(err)
 		}
 	}
 
@@ -33,13 +33,13 @@ func (proc *Collector) Collect(scanner *bufio.Scanner, processor func(string) er
 	return nil
 }
 
-func (proc *Collector) ReportError(err error) {
-	proc.errorCounts[err.Error()]++
+func (coll *Collector) ReportError(err error) {
+	coll.errorCounts[err.Error()]++
 }
 
 // PrintErrorSummary dumps the tally of problems encountered.
-func (proc *Collector) PrintErrorSummary() {
-	if len(proc.errorCounts) == 0 {
+func (coll *Collector) PrintErrorSummary() {
+	if len(coll.errorCounts) == 0 {
 		return
 	}
 
@@ -48,7 +48,7 @@ func (proc *Collector) PrintErrorSummary() {
 		count int
 	}
 	var errs []kv
-	for msg, cnt := range proc.errorCounts {
+	for msg, cnt := range coll.errorCounts {
 		errs = append(errs, kv{msg, cnt})
 	}
 

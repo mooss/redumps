@@ -104,20 +104,26 @@ func process(filenames []string, proc processor) error {
 	initialBuffer := make([]byte, 1024*1024)
 
 	for _, filename := range filenames {
-		file, err := os.Open(filename)
-		if err != nil {
-			return fmt.Errorf("error opening file: %w", err)
-		}
-		defer file.Close()
+		// Use a closure to make sure files are closed as soon as they are processed.
+		if err := func() error {
+			file, err := os.Open(filename)
+			if err != nil {
+				return fmt.Errorf("error opening file: %w", err)
+			}
+			defer file.Close()
 
-		// Increase initial and maximum size to handle long comments and submissions.
-		// Initial buffer: 1MB, max buffer: 10MB.
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(initialBuffer, 10*1024*1024)
+			// Increase initial and maximum size to handle long comments and submissions.
+			// Initial buffer: 1MB, max buffer: 10MB.
+			scanner := bufio.NewScanner(file)
+			scanner.Buffer(initialBuffer, 10*1024*1024)
 
-		if err := collector.Collect(scanner, proc.Process); err != nil {
-			// To avoid throwing away a processing session, errors are just reported and not fatal.
-			collector.ReportError(fmt.Errorf("error during processing: %w", err))
+			if err := collector.Collect(scanner, proc.Process); err != nil {
+				// To avoid throwing away a processing session, errors are just reported and not fatal.
+				collector.ReportError(fmt.Errorf("error during processing: %w", err))
+			}
+			return nil
+		}(); err != nil {
+			return err
 		}
 	}
 
