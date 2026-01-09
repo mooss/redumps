@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"redumps/dumps"
@@ -15,6 +16,7 @@ func usagef(msg ...string) {
 }
 
 func main() {
+	binary := os.Args[0]
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <command> [options]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
@@ -23,22 +25,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	flag.Parse()
 	var cmderr error
+	command := flag.Args()[0]
 
-	switch os.Args[1] {
+	args := []string{}
+	if len(flag.Args()) > 1 {
+		args = flag.Args()[1:]
+	}
+
+	switch command {
 	case "stats":
-		if len(os.Args) < 3 {
-			usagef(os.Args[0], "stats dumpfile [dumpfile...]")
+		if len(args) < 1 {
+			usagef(binary, "stats dumpfile [dumpfile...]")
 		}
-		cmderr = runStats(os.Args[2:])
+		cmderr = runStats(args)
 	case "fields":
-		if len(os.Args) < 3 {
-			usagef(os.Args[0], "fields dumpfile [dumpfile...]")
+		if len(args) < 1 {
+			usagef(binary, "fields dumpfile [dumpfile...]")
 			break
 		}
-		cmderr = process(os.Args[2:], &dumps.FieldsProcessor{})
+		cmderr = process(args, &dumps.FieldsProcessor{})
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		fmt.Fprintf(os.Stderr, "Available commands: stats, fields\n")
 		os.Exit(1)
 	}
