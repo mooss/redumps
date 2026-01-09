@@ -54,9 +54,16 @@ type processor interface {
 	Report()
 }
 
+func chrono() func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("Processing time: %v\n", time.Since(start))
+	}
+}
+
 // Helper function to factor out common processing logic.
 func process(filenames []string, proc processor) error {
-	startTime := time.Now()
+	defer chrono()()
 	for _, filename := range filenames {
 		file, err := os.Open(filename)
 		if err != nil {
@@ -71,10 +78,8 @@ func process(filenames []string, proc processor) error {
 			return fmt.Errorf("error closing file: %w", err)
 		}
 	}
-	proc.Report()
 
-	elapsed := time.Since(startTime)
-	fmt.Printf("Processing time: %v\n", elapsed)
+	proc.Report()
 	return nil
 }
 
