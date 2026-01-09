@@ -1,10 +1,11 @@
 package dumps
 
 import (
-	"encoding/json"
 	"fmt"
 	"redumps/errs"
 	"sort"
+
+	"github.com/buger/jsonparser"
 )
 
 // FieldsProcessor counts occurrences of each field in JSON objects.
@@ -15,18 +16,18 @@ type FieldsProcessor struct {
 
 // Process processes a single JSON line.
 func (p *FieldsProcessor) Process(line string) error {
-	var obj map[string]any
-	if err := json.Unmarshal([]byte(line), &obj); err != nil {
-		return errs.Prefix(err, "parse JSON object")
-	}
-
+	data := []byte(line)
 	if p.fieldCounts == nil {
 		p.fieldCounts = make(map[string]int)
 	}
 
-	// Count each field in the object.
-	for field := range obj {
-		p.fieldCounts[field]++
+	err := jsonparser.ObjectEach(data, func(key []byte, _ []byte, _ jsonparser.ValueType, _ int) error {
+		p.fieldCounts[string(key)]++
+		return nil
+	})
+
+	if err != nil {
+		return errs.Prefix(err, "parse JSON object")
 	}
 
 	p.totalObjects++
