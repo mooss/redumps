@@ -23,7 +23,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s <command> [options]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  stats  - Compute stats\n")
-		fmt.Fprintf(os.Stderr, "  fields - Count fields\n")
 		os.Exit(1)
 	}
 
@@ -68,11 +67,6 @@ func main() {
 			usagef(binary, "stats dumpfile [dumpfile...]")
 		}
 		cmderr = runStats(args)
-	case "fields":
-		if len(args) < 1 {
-			usagef(binary, "fields dumpfile [dumpfile...]")
-		}
-		cmderr = process(args, &dumps.FieldsProcessor{})
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		fmt.Fprintf(os.Stderr, "Available commands: stats, fields\n")
@@ -115,7 +109,7 @@ func process(filenames []string, proc processor) error {
 			}
 			defer file.Close()
 
-			// Increase initial and maximum size to handle long comments and submissions.
+			// Increase initial and maximum size to handle long comments.
 			// Initial buffer: 1MB, max buffer: 10MB.
 			scanner := bufio.NewScanner(file)
 			scanner.Buffer(initialBuffer, 10*1024*1024)
@@ -138,7 +132,6 @@ func process(filenames []string, proc processor) error {
 func runStats(filenames []string) error {
 	var (
 		comments    int
-		submissions int
 		others      int
 	)
 
@@ -146,22 +139,18 @@ func runStats(filenames []string) error {
 		switch {
 		case strings.HasSuffix(filename, "_comments"):
 			comments++
-		case strings.HasSuffix(filename, "_submissions"):
-			submissions++
 		default:
 			others++
 		}
 	}
 
 	switch {
-	case comments > 0 && submissions == 0 && others == 0:
+	case comments > 0 && others == 0:
 		return process(filenames, &dumps.CommentScores{})
-	case comments == 0 && submissions > 0 && others == 0:
-		return process(filenames, &dumps.SubmissionScores{})
 	}
 
 	return fmt.Errorf(
-		"filenames must all end with '_comments' or '_submissions' to determine stats type (got %d comments %d submissions and %d others)",
-		comments, submissions, others,
+		"filenames must all end with '_comments' to determine stats type (got %d comments and %d others)",
+		comments, others,
 	)
 }
