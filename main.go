@@ -94,7 +94,9 @@ type processor interface {
 	Report()
 }
 
-// Helper function to factor out common processing logic.
+// process processes files using concurrent line-based batching.
+// batchSize controls how many lines are processed per goroutine call.
+// Recommended: 64-256 for typical workloads.
 func process(filenames []string, proc processor) error {
 	collector := dumps.Collector{}
 	defer chrono(&collector)()
@@ -131,8 +133,8 @@ func process(filenames []string, proc processor) error {
 
 func runStats(filenames []string) error {
 	var (
-		comments    int
-		others      int
+		comments int
+		others   int
 	)
 
 	for _, filename := range filenames {
