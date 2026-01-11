@@ -23,17 +23,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let file = fs::File::open(&args.input)?;
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
     let mut total_counts: HashMap<String, usize> = HashMap::new();
     let mut total_bytes: usize = 0;
     let start = Instant::now();
 
-    for line_res in reader.lines() {
-        let line = line_res?;
-        total_bytes += line.len();
-        let json: Value = serde_json::from_str(line.as_str())?;
-        count_fields_into(&json, &mut total_counts);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break, // EOF.
+            Ok(_) => {
+                total_bytes += line.len();
+                let json: Value = serde_json::from_str(&line)?;
+                count_fields_into(&json, &mut total_counts);
+            }
+            Err(e) => return Err(Box::new(e)),
+        }
     }
 
     let elapsed = start.elapsed().as_secs_f64();
