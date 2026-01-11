@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::time::Instant;
 
 mod json;
 use crate::json::{count_fields, print_sorted_counts};
@@ -25,13 +26,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = BufReader::new(file);
 
     let mut total_counts: HashMap<String, usize> = HashMap::new();
+    let mut total_bytes: usize = 0;
+    let start = Instant::now();
 
     for line_res in reader.lines() {
         let line = line_res?;
+        total_bytes += line.len();
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
+
         let json: Value = serde_json::from_str(trimmed)?;
         let counts = count_fields(&json);
         for (key, value) in counts {
@@ -39,9 +44,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    let elapsed = start.elapsed().as_secs_f64();
+    let mib_processed = to_mib(total_bytes as f64);
+
     print_sorted_counts(total_counts);
-    let metadata = fs::metadata(&args.input)?;
-    println!("Size: {} MiB", to_mib(metadata.len() as f64));
+    println!(
+        "Processed {:.2} MiB in {:.3} seconds ({:.2} MiB/s)",
+        mib_processed,
+        elapsed,
+        mib_processed / elapsed,
+    );
 
     Ok(())
 }
