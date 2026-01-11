@@ -8,7 +8,7 @@ release:
 
 # Run the program with arguments
 run *args:
-    cargo run -- {{args}}
+    cargo run --release -- {{args}}
 
 # Run tests
 test:
