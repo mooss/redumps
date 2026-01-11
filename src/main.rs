@@ -32,12 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for line_res in reader.lines() {
         let line = line_res?;
         total_bytes += line.len();
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        let json: Value = serde_json::from_str(trimmed)?;
+        let json: Value = serde_json::from_str(line.as_str())?;
         let counts = count_fields(&json);
         for (key, value) in counts {
             *total_counts.entry(key).or_insert(0) += value;
