@@ -7,17 +7,19 @@ use clap::Parser;
 struct Args {
     /// Input file.
     input: String,
-
-    /// Output file.
-    #[arg(short, long)]
-    output: Option<String>,
 }
 
-fn main() -> Result<()> {
+mod conv;
+use crate::conv::to_mib;
+use std::fs;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     println!("Input: {:?}", args.input);
-    println!("Output: {:?}", args.output);
+
+    let metadata = fs::metadata(&args.input)?;
+    println!("Size: {} MiB", to_mib(metadata.len() as f64));
 
     Ok(())
 }
