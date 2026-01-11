@@ -10,7 +10,12 @@ fn count_fields_recursive(value: &Value, counts: &mut HashMap<String, usize>) {
     match value {
         Value::Object(map) => {
             for (key, val) in map {
-                *counts.entry(key.clone()).or_insert(0) += 1;
+                // Don't clone the key unless absolutely necessary.
+                if let Some(count) = counts.get_mut(key.as_str()) {
+                    *count += 1;
+                } else {
+                    counts.insert(key.clone(), 1);
+                }
                 count_fields_recursive(val, counts);
             }
         }
