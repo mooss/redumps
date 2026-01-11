@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 use std::time::Instant;
 
 mod json;
-use crate::json::{count_fields, print_sorted_counts};
+use crate::json::{count_fields_into, print_sorted_counts};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -33,10 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let line = line_res?;
         total_bytes += line.len();
         let json: Value = serde_json::from_str(line.as_str())?;
-        let counts = count_fields(&json);
-        for (key, value) in counts {
-            *total_counts.entry(key).or_insert(0) += value;
-        }
+        count_fields_into(&json, &mut total_counts);
     }
 
     let elapsed = start.elapsed().as_secs_f64();

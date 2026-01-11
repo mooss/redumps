@@ -1,10 +1,9 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-pub fn count_fields(json: &Value) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
-    count_fields_recursive(json, &mut counts);
-    counts
+/// Increment `counts` with the field occurrences found in `json`.
+pub fn count_fields_into(value: &Value, counts: &mut HashMap<String, usize>) {
+    count_fields_recursive(value, counts);
 }
 
 fn count_fields_recursive(value: &Value, counts: &mut HashMap<String, usize>) {
