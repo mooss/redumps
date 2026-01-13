@@ -1,12 +1,10 @@
 use clap::Parser;
-use serde_json::Value;
-use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::time::Instant;
 
 mod json;
-use crate::json::{count_fields_into, print_sorted_counts};
+use crate::json::{count_fields_from_reader, print_sorted_counts};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -23,26 +21,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let file = fs::File::open(&args.input)?;
-    let mut reader = BufReader::new(file);
+    let reader = BufReader::new(file);
 
-    let mut total_counts: HashMap<String, usize> = HashMap::new();
-    let mut total_bytes: usize = 0;
     let start = Instant::now();
-
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => break, // EOF.
-            Ok(_) => {
-                total_bytes += line.len();
-                let json: Value = serde_json::from_str(&line)?;
-                count_fields_into(&json, &mut total_counts);
-            }
-            Err(e) => return Err(Box::new(e)),
-        }
-    }
-
+    let (total_counts, total_bytes) = count_fields_from_reader(reader)?;
     let elapsed = start.elapsed().as_secs_f64();
     let mib_processed = to_mib(total_bytes as f64);
 
