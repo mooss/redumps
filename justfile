@@ -30,6 +30,12 @@ clean:
 fmt:
     cargo fmt
 
+# Profile with perf (record)
+profile *args:
+    cargo build --profile profiling
+    perf record -g --call-graph dwarf -o perf.data target/profiling/redumps {{args}}
+    ./scripts/generate-profiling-graphs.sh
+
 # Show help
 help:
     @just --list

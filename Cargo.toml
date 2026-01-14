@@ -7,3 +7,10 @@ edition = "2024"
 clap = { version = "4.0", features = ["derive"] }
 sonic-rs = "0.5.6"
 
+[profile.release]
+# lto = true
+opt-level = 3
+
+[profile.profiling]
+inherits = "release"
+debug = true
