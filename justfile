@@ -4,7 +4,7 @@ build:
 
 # Build in release mode
 release:
-    cargo build --release
+    RUSTFLAGS='-C target-cpu=native' cargo build --release
 
 # Run the program with arguments
 run *args:
