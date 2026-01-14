@@ -1,13 +1,15 @@
 use sonic_rs::{to_object_iter, ObjectJsonIter};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::BufRead;
 
-fn count_fields(object: ObjectJsonIter, counts: &mut HashMap<String, usize>) {
+fn count_fields(object: ObjectJsonIter, counts: &mut HashMap<Cow<'static, str>, usize>) {
     // We ignore errors and only count valid fields.
     for (key, _) in object.filter_map(|res| res.ok()) {
-        let key = key.to_string();
-        // Don't clone the key unless absolutely necessary.
+        let key = Cow::<'static, str>::Owned(key.into_owned());
+
+        // PERF: The entry API is slower.
         if let Some(count) = counts.get_mut(&key) {
             *count += 1;
         } else {
@@ -16,7 +18,7 @@ fn count_fields(object: ObjectJsonIter, counts: &mut HashMap<String, usize>) {
     }
 }
 
-pub fn print_sorted_counts(counts: HashMap<String, usize>) {
+pub fn print_sorted_counts(counts: HashMap<Cow<'static, str>, usize>) {
     let mut entries: Vec<_> = counts.into_iter().collect();
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 
@@ -28,8 +30,10 @@ pub fn print_sorted_counts(counts: HashMap<String, usize>) {
 /// Read JSON lines from a BufRead source, count field occurrences, and return counts and total bytes.
 pub fn count_fields_from_reader<R: BufRead>(
     mut reader: R,
-) -> Result<(HashMap<String, usize>, usize), Box<dyn Error>> {
-    let mut total_counts: HashMap<String, usize> = HashMap::new();
+) -> Result<(HashMap<Cow<'static, str>, usize>, usize), Box<dyn Error>> {
+    // Cow<'static, str> is faster than String, probably because sonic_rs Cow<'_, str> and/or
+    // because of borrow schenanigans.
+    let mut total_counts: HashMap<Cow<'static, str>, usize> = HashMap::new();
     let mut total_bytes: usize = 0;
     let mut line = String::new();
 
