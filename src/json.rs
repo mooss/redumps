@@ -1,10 +1,10 @@
 use sonic_rs::{to_object_iter, ObjectJsonIter};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::error::Error;
 use std::io::BufRead;
 
-use crate::io::readlines;
+use crate::io::foreach_line;
+use crate::utils::Maybe;
 
 pub type CountMap = HashMap<Cow<'static, str>, usize>;
 
@@ -27,13 +27,13 @@ pub struct FieldCounts {
 }
 
 /// Read JSON lines from a BufRead source, count field occurrences, and return counts and total bytes.
-pub fn count_fields_from_reader<R: BufRead>(reader: R) -> Result<FieldCounts, Box<dyn Error>> {
+pub fn count_fields_from_reader<R: BufRead>(reader: R) -> Maybe<FieldCounts> {
     // PERF: Cow<'static, str> is faster than String, probably because sonic_rs Cow<'_, str> and/or
     // because of borrow schenanigans.
     let mut total_counts: CountMap = HashMap::new();
     let mut nbytes: usize = 0;
 
-    readlines(reader, |line| {
+    foreach_line(reader, |line| {
         nbytes += line.len();
         let iter = to_object_iter(line);
         count_fields(iter, &mut total_counts);

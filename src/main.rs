@@ -1,12 +1,12 @@
 use clap::Parser;
 use std::{io::Write, time::Instant};
 
-mod conv;
 mod io;
 mod json;
-use crate::conv::to_mib;
+mod utils;
 use crate::io::{open_file_or_zstd, prepare_output_writer};
 use crate::json::{count_fields_from_reader, CountMap};
+use crate::utils::{to_mib, Maybe};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -20,7 +20,7 @@ struct Args {
     output: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Maybe {
     let args = Args::parse();
 
     let reader = open_file_or_zstd(&args.input)?;
@@ -45,10 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /////////////////////
 // Local utilities //
 
-pub fn print_sorted_counts<W: Write>(
-    counts: CountMap,
-    writer: &mut W,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn print_sorted_counts<W: Write>(counts: CountMap, writer: &mut W) -> Maybe {
     let mut entries: Vec<_> = counts.into_iter().collect();
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 

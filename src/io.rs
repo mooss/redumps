@@ -1,11 +1,12 @@
 use std::{
-    error::Error,
     fs::{create_dir_all, File},
     io::{stdout, BufRead, BufReader, Write},
     path::Path,
 };
 
-pub fn readlines<R: BufRead, F>(mut reader: R, mut f: F) -> Result<(), Box<dyn Error>>
+use crate::utils::Maybe;
+
+pub fn foreach_line<R: BufRead, F>(mut reader: R, mut f: F) -> Maybe
 where
     F: FnMut(&str),
 {
@@ -24,7 +25,7 @@ where
 }
 
 // Open the given file as a reader, with support for zstd archives.
-pub fn open_file_or_zstd(filename: &str) -> Result<Box<dyn BufRead>, Box<dyn Error>> {
+pub fn open_file_or_zstd(filename: &str) -> Maybe<Box<dyn BufRead>> {
     let file = File::open(filename)?;
 
     match filename {
@@ -43,7 +44,7 @@ pub fn open_file_or_zstd(filename: &str) -> Result<Box<dyn BufRead>, Box<dyn Err
 pub fn prepare_output_writer(
     output_dirname: Option<&str>,
     input_filename: &str,
-) -> Result<Box<dyn Write>, Box<dyn Error>> {
+) -> Maybe<Box<dyn Write>> {
     match output_dirname {
         Some(dir) => {
             // Create directory if it doesn't exist
