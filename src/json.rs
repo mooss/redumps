@@ -27,22 +27,25 @@ pub fn print_sorted_counts(counts: HashMap<Cow<'static, str>, usize>) {
     }
 }
 
+pub struct FieldCounts {
+    pub map: HashMap<Cow<'static, str>, usize>,
+    pub nbytes: usize,
+}
+
 /// Read JSON lines from a BufRead source, count field occurrences, and return counts and total bytes.
-pub fn count_fields_from_reader<R: BufRead>(
-    mut reader: R,
-) -> Result<(HashMap<Cow<'static, str>, usize>, usize), Box<dyn Error>> {
+pub fn count_fields_from_reader<R: BufRead>(mut reader: R) -> Result<FieldCounts, Box<dyn Error>> {
     // Cow<'static, str> is faster than String, probably because sonic_rs Cow<'_, str> and/or
     // because of borrow schenanigans.
     let mut total_counts: HashMap<Cow<'static, str>, usize> = HashMap::new();
-    let mut total_bytes: usize = 0;
+    let mut nbytes: usize = 0;
     let mut line = String::new();
 
     loop {
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) => break, // EOF
+            Ok(0) => break,
             Ok(_) => {
-                total_bytes += line.len();
+                nbytes += line.len();
                 let iter = to_object_iter(line.as_str());
                 count_fields(iter, &mut total_counts);
             }
@@ -50,5 +53,8 @@ pub fn count_fields_from_reader<R: BufRead>(
         }
     }
 
-    Ok((total_counts, total_bytes))
+    Ok(FieldCounts {
+        map: total_counts,
+        nbytes,
+    })
 }

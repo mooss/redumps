@@ -24,11 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = BufReader::new(file);
 
     let start = Instant::now();
-    let (total_counts, total_bytes) = count_fields_from_reader(reader)?;
+    let counts = count_fields_from_reader(reader)?;
     let elapsed = start.elapsed().as_secs_f64();
-    let mib_processed = to_mib(total_bytes as f64);
+    let mib_processed = to_mib(counts.nbytes as f64);
 
-    print_sorted_counts(total_counts);
+    print_sorted_counts(counts.map);
     println!(
         "Processed {:.2} MiB in {:.3} seconds ({:.2} MiB/s)",
         mib_processed,
