@@ -1,6 +1,6 @@
 use clap::Parser;
 use std::fs;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use std::time::Instant;
 
 mod json;
@@ -17,11 +17,23 @@ struct Args {
 mod conv;
 use crate::conv::to_mib;
 
+// Open the given file as a reader, with support for zstd archives.
+fn create_reader(filename: &str) -> Result<Box<dyn BufRead>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(filename)?;
+
+    match filename {
+        f if f.ends_with(".zst") || f.ends_with(".zstd") => {
+            let decoder = zstd::Decoder::new(file)?;
+            Ok(Box::new(BufReader::new(decoder)))
+        }
+        _ => Ok(Box::new(BufReader::new(file))),
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let file = fs::File::open(&args.input)?;
-    let reader = BufReader::new(file);
+    let reader = create_reader(&args.input)?;
 
     let start = Instant::now();
     let counts = count_fields_from_reader(reader)?;
