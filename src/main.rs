@@ -1,10 +1,13 @@
+mod conv;
+mod io;
+mod json;
+
 use clap::Parser;
-use std::fs;
-use std::io::{BufRead, BufReader};
 use std::time::Instant;
 
-mod json;
-use crate::json::{count_fields_from_reader, print_sorted_counts};
+use crate::conv::to_mib;
+use crate::io::open_file_or_zstd;
+use crate::json::{count_fields_from_reader, CountMap};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -14,26 +17,10 @@ struct Args {
     input: String,
 }
 
-mod conv;
-use crate::conv::to_mib;
-
-// Open the given file as a reader, with support for zstd archives.
-fn create_reader(filename: &str) -> Result<Box<dyn BufRead>, Box<dyn std::error::Error>> {
-    let file = fs::File::open(filename)?;
-
-    match filename {
-        f if f.ends_with(".zst") || f.ends_with(".zstd") => {
-            let decoder = zstd::Decoder::new(file)?;
-            Ok(Box::new(BufReader::new(decoder)))
-        }
-        _ => Ok(Box::new(BufReader::new(file))),
-    }
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let reader = create_reader(&args.input)?;
+    let reader = open_file_or_zstd(&args.input)?;
 
     let start = Instant::now();
     let counts = count_fields_from_reader(reader)?;
@@ -49,4 +36,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+/////////////////////
+// Local utilities //
+
+pub fn print_sorted_counts(counts: CountMap) {
+    let mut entries: Vec<_> = counts.into_iter().collect();
+    entries.sort_by(|a, b| b.1.cmp(&a.1));
+
+    for (field, count) in entries {
+        println!("{}: {}", field, count);
+    }
 }
