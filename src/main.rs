@@ -12,8 +12,8 @@ use crate::utils::{to_mib, Maybe};
 #[command(version)]
 #[command(about = "Process reddit dumps")]
 struct Args {
-    /// Input file.
-    input: String,
+    /// Input files.
+    input: Vec<String>,
 
     /// Output directory (if not provided, print to stdout).
     #[arg(short, long, default_value = "")]
@@ -23,15 +23,16 @@ struct Args {
 fn main() -> Maybe {
     let args = Args::parse();
 
-    let reader = open_file_or_zstd(&args.input)?;
-
-    let mut writer = prepare_output_writer(args.output, &args.input, ".fields.json")?;
+    let mut total_nbytes = 0usize;
     let start = Instant::now();
-    let counts = count_fields_from_reader(reader)?;
-    let elapsed = start.elapsed().as_secs_f64();
-    let mib_processed = to_mib(counts.nbytes as f64);
 
-    print_sorted_counts(counts.map, &mut writer)?;
+    for input_path in &args.input {
+        total_nbytes += count_fields_impl(input_path.clone(), args.output.clone())?;
+    }
+
+    let elapsed = start.elapsed().as_secs_f64();
+    let mib_processed = to_mib(total_nbytes as f64);
+
     eprintln!(
         "Processed {:.2} MiB in {:.3} seconds ({:.2} MiB/s)",
         mib_processed,
@@ -44,6 +45,14 @@ fn main() -> Maybe {
 
 /////////////////////
 // Local utilities //
+
+pub fn count_fields_impl(input_path: String, output_path: String) -> Maybe<usize> {
+    let reader = open_file_or_zstd(&input_path)?;
+    let counts = count_fields_from_reader(reader)?;
+    let mut writer = prepare_output_writer(output_path, input_path, ".fields.json")?;
+    print_sorted_counts(counts.map, &mut writer)?;
+    return Ok(counts.nbytes);
+}
 
 pub fn print_sorted_counts<W: Write>(counts: CountMap, writer: &mut W) -> std::io::Result<()> {
     let mut entries: Vec<_> = counts.into_iter().collect();

@@ -43,14 +43,14 @@ pub fn open_file_or_zstd(filename: &str) -> Maybe<Box<dyn BufRead>> {
 /// Will create the directory if it does not exist.
 pub fn prepare_output_writer(
     output_dirname: String,
-    input_filename: &str,
+    input_filename: String,
     suffix: &str,
 ) -> Maybe<Box<dyn Write>> {
     if output_dirname.is_empty() {
         return Ok(Box::new(stdout()));
     }
 
-    let input_path = Path::new(input_filename);
+    let input_path = Path::new(&input_filename);
     let input_stem = input_path
         .file_stem()
         .unwrap_or_else(|| input_filename.as_ref())
