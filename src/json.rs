@@ -33,28 +33,38 @@ pub struct FieldCounts {
 }
 
 /// Read JSON lines from a BufRead source, count field occurrences, and return counts and total bytes.
-pub fn count_fields_from_reader<R: BufRead>(mut reader: R) -> Result<FieldCounts, Box<dyn Error>> {
+pub fn count_fields_from_reader<R: BufRead>(reader: R) -> Result<FieldCounts, Box<dyn Error>> {
     // Cow<'static, str> is faster than String, probably because sonic_rs Cow<'_, str> and/or
     // because of borrow schenanigans.
     let mut total_counts: HashMap<Cow<'static, str>, usize> = HashMap::new();
     let mut nbytes: usize = 0;
-    let mut line = String::new();
 
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => break,
-            Ok(_) => {
-                nbytes += line.len();
-                let iter = to_object_iter(line.as_str());
-                count_fields(iter, &mut total_counts);
-            }
-            Err(e) => return Err(Box::new(e)),
-        }
-    }
+    readlines(reader, |line| {
+        nbytes += line.len();
+        let iter = to_object_iter(line);
+        count_fields(iter, &mut total_counts);
+    })?;
 
     Ok(FieldCounts {
         map: total_counts,
         nbytes,
     })
+}
+
+fn readlines<R: BufRead, F>(mut reader: R, mut f: F) -> Result<(), Box<dyn Error>>
+where
+    F: FnMut(&str),
+{
+    // Using read_line this way instead of iterating with reader.lines appears to be faster, it
+    // looks like reader.lines is doing more allocations.
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => f(&line),
+            Err(e) => return Err(Box::new(e)),
+        }
+    }
+    Ok(())
 }
