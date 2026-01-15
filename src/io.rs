@@ -42,28 +42,22 @@ pub fn open_file_or_zstd(filename: &str) -> Maybe<Box<dyn BufRead>> {
 /// Defaults to stdout if `output_dirname` is empty.
 /// Will create the directory if it does not exist.
 pub fn prepare_output_writer(
-    output_dirname: Option<&str>,
+    output_dirname: String,
     input_filename: &str,
+    suffix: &str,
 ) -> Maybe<Box<dyn Write>> {
-    match output_dirname {
-        Some(dir) => {
-            // Create directory if it doesn't exist
-            create_dir_all(dir)?;
-
-            // Generate output filename: dir/input_filename.out
-            let input_path = Path::new(input_filename);
-            let input_stem = input_path
-                .file_stem()
-                .unwrap_or_else(|| input_filename.as_ref())
-                .to_string_lossy();
-            let output_filename = format!("{}/{}.out", dir, input_stem);
-
-            let file = File::create(&output_filename)?;
-            Ok(Box::new(file))
-        }
-        None => {
-            // Write to stdout
-            Ok(Box::new(stdout()))
-        }
+    if output_dirname.is_empty() {
+        return Ok(Box::new(stdout()));
     }
+
+    let input_path = Path::new(input_filename);
+    let input_stem = input_path
+        .file_stem()
+        .unwrap_or_else(|| input_filename.as_ref())
+        .to_string_lossy();
+    let output_filename = format!("{}/{}{}", &output_dirname, input_stem, suffix);
+
+    create_dir_all(&output_dirname)?;
+    let file = File::create(&output_filename)?;
+    Ok(Box::new(file))
 }

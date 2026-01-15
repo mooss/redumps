@@ -16,8 +16,8 @@ struct Args {
     input: String,
 
     /// Output directory (if not provided, print to stdout).
-    #[arg(short, long)]
-    output: Option<String>,
+    #[arg(short, long, default_value = "")]
+    output: String,
 }
 
 fn main() -> Maybe {
@@ -25,7 +25,7 @@ fn main() -> Maybe {
 
     let reader = open_file_or_zstd(&args.input)?;
 
-    let mut writer = prepare_output_writer(args.output.as_deref(), &args.input)?;
+    let mut writer = prepare_output_writer(args.output, &args.input, ".fields.json")?;
     let start = Instant::now();
     let counts = count_fields_from_reader(reader)?;
     let elapsed = start.elapsed().as_secs_f64();
