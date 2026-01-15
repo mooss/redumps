@@ -45,12 +45,18 @@ fn main() -> Maybe {
 /////////////////////
 // Local utilities //
 
-pub fn print_sorted_counts<W: Write>(counts: CountMap, writer: &mut W) -> Maybe {
+pub fn print_sorted_counts<W: Write>(counts: CountMap, writer: &mut W) -> std::io::Result<()> {
     let mut entries: Vec<_> = counts.into_iter().collect();
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 
-    for (field, count) in entries {
-        writeln!(writer, "{}: {}", field, count)?;
+    writeln!(writer, "{{")?;
+    if let Some((last, rest)) = entries.split_last() {
+        for (field, count) in rest {
+            writeln!(writer, "  \"{}\": {},", field, count)?;
+        }
+        writeln!(writer, "  \"{}\": {}", last.0, last.1)?;
     }
+    writeln!(writer, "}}")?;
+
     Ok(())
 }
