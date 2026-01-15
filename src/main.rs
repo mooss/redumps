@@ -1,12 +1,11 @@
+use clap::Parser;
+use std::{io::Write, time::Instant};
+
 mod conv;
 mod io;
 mod json;
-
-use clap::Parser;
-use std::time::Instant;
-
 use crate::conv::to_mib;
-use crate::io::open_file_or_zstd;
+use crate::io::{open_file_or_zstd, prepare_output_writer};
 use crate::json::{count_fields_from_reader, CountMap};
 
 #[derive(Parser, Debug)]
@@ -15,6 +14,10 @@ use crate::json::{count_fields_from_reader, CountMap};
 struct Args {
     /// Input file.
     input: String,
+
+    /// Output directory (if not provided, print to stdout).
+    #[arg(short, long)]
+    output: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,13 +25,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let reader = open_file_or_zstd(&args.input)?;
 
+    let mut writer = prepare_output_writer(args.output.as_deref(), &args.input)?;
     let start = Instant::now();
     let counts = count_fields_from_reader(reader)?;
     let elapsed = start.elapsed().as_secs_f64();
     let mib_processed = to_mib(counts.nbytes as f64);
 
-    print_sorted_counts(counts.map);
-    println!(
+    print_sorted_counts(counts.map, &mut writer)?;
+    eprintln!(
         "Processed {:.2} MiB in {:.3} seconds ({:.2} MiB/s)",
         mib_processed,
         elapsed,
@@ -41,11 +45,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /////////////////////
 // Local utilities //
 
-pub fn print_sorted_counts(counts: CountMap) {
+pub fn print_sorted_counts<W: Write>(
+    counts: CountMap,
+    writer: &mut W,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut entries: Vec<_> = counts.into_iter().collect();
     entries.sort_by(|a, b| b.1.cmp(&a.1));
 
     for (field, count) in entries {
-        println!("{}: {}", field, count);
+        writeln!(writer, "{}: {}", field, count)?;
     }
+    Ok(())
 }
