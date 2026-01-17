@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     fs::{create_dir_all, File},
     io::{stdout, BufRead, BufReader, Write},
     path::Path,
@@ -6,9 +7,10 @@ use std::{
 
 use crate::utils::Maybe;
 
-pub fn foreach_line<R: BufRead, F>(mut reader: R, mut f: F) -> Maybe
+pub fn foreach_line<R: BufRead, F, E>(mut reader: R, mut f: F) -> Maybe
 where
-    F: FnMut(&str),
+    F: FnMut(&str) -> Result<(), E>,
+    E: Error + 'static,
 {
     // PERF: Using read_line this way instead of iterating with reader.lines appears to be faster,
     // it looks like reader.lines is doing more allocations.
@@ -17,7 +19,7 @@ where
         line.clear();
         match reader.read_line(&mut line) {
             Ok(0) => break,
-            Ok(_) => f(&line),
+            Ok(_) => f(&line)?,
             Err(e) => return Err(Box::new(e)),
         }
     }

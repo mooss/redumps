@@ -34,7 +34,7 @@ fn main() -> Maybe {
     let mib_processed = to_mib(total_nbytes as f64);
 
     eprintln!(
-        "Processed {:.2} MiB in {:.3} seconds ({:.2} MiB/s)",
+        "{:.2} MiB processed in {:.3} seconds ({:.2} MiB/s)",
         mib_processed,
         elapsed,
         mib_processed / elapsed,
@@ -51,7 +51,7 @@ pub fn count_fields_impl(input_path: String, output_path: String) -> Maybe<usize
     let counts = count_fields_from_reader(reader)?;
     let mut writer = prepare_output_writer(output_path, input_path, ".fields.json")?;
     print_sorted_counts(counts.map, &mut writer)?;
-    return Ok(counts.nbytes);
+    Ok(counts.nbytes)
 }
 
 pub fn print_sorted_counts<W: Write>(counts: CountMap, writer: &mut W) -> std::io::Result<()> {
