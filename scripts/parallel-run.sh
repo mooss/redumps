@@ -8,7 +8,7 @@ function calc() {
     echo "$@" | bc -q
 }
 
-function ncores() {
+function ncores() { # Number of actual cores, not counting hyperthreading.
     grep 'core id' /proc/cpuinfo | sort -u | wc -l
 }
 
@@ -34,7 +34,7 @@ total_bytes=0
 #################
 # Script proper #
 
-printf '%s\n' "$FILES" | xargs -n1 -P $(ncores) $redumps -o "$OUTPUT_DIR"
+printf '%s\n' "$FILES" | xargs -n1 -P $(ncores) $redumps count-fields -o "$OUTPUT_DIR" > /dev/null
 
 for file in $FILES; do
     bytes=$(stat -c%s "$file")
