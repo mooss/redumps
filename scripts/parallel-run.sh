@@ -22,7 +22,7 @@ fi
 
 redumps=./target/release/redumps
 OUTPUT_DIR="$1"; shift
-FILES="$@"
+FILES=$(ls -lS "$@" | awk '{print $9}') # Sort files by size to always process the biggest first.
 
 if [[ ! -x $redumps ]]; then
     echo -e "redumps binary ($redumps) not found.\nBuild it with \`just release\`." >&2
