@@ -1,6 +1,6 @@
 use std::{
-    fs::{create_dir_all, File},
-    io::{stdout, BufRead, BufReader, Write},
+    fs::{File, create_dir_all},
+    io::{BufRead, BufReader, Write, stdout},
     path::Path,
 };
 

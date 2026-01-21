@@ -5,8 +5,8 @@ mod io;
 mod json;
 mod utils;
 use crate::io::{open_file_or_zstd, prepare_output_writer};
-use crate::json::{count_fields_from_reader, CountMap};
-use crate::utils::{to_mib, Maybe};
+use crate::json::{CountMap, count_fields_from_reader};
+use crate::utils::{Maybe, to_mib};
 
 #[derive(Parser, Debug)]
 #[command(version)]

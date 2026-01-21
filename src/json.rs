@@ -1,4 +1,4 @@
-use sonic_rs::{to_object_iter, ObjectJsonIter};
+use sonic_rs::{JsonType, JsonValueTrait, ObjectJsonIter, to_object_iter};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::BufRead;
@@ -8,10 +8,22 @@ use crate::utils::Maybe;
 
 pub type CountMap = HashMap<Cow<'static, str>, usize>;
 
+fn json_type_to_str(typ: JsonType) -> &'static str {
+    match typ {
+        JsonType::Null => "Null",
+        JsonType::Boolean => "Boolean",
+        JsonType::Number => "Number",
+        JsonType::String => "String",
+        JsonType::Object => "Object",
+        JsonType::Array => "Array",
+    }
+}
+
 fn count_fields(object: ObjectJsonIter, counts: &mut CountMap) {
     // We ignore errors and only count valid fields.
-    for (key, _) in object.filter_map(|res| res.ok()) {
+    for (key, value) in object.filter_map(|res| res.ok()) {
         let key = Cow::<'static, str>::Owned(key.into_owned());
+        let key = key + "/" + json_type_to_str(value.get_type());
 
         // PERF: The entry API is slower.
         if let Some(count) = counts.get_mut(&key) {
