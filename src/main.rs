@@ -3,6 +3,7 @@ use std::{io::Write, time::Instant};
 
 mod io;
 mod json;
+mod parquet;
 mod utils;
 use crate::io::{open_file_or_zstd, prepare_output_writer};
 use crate::json::{CountMap, count_fields_from_reader};
@@ -30,6 +31,17 @@ enum Cmd {
         #[arg(short, long, default_value = "")]
         output: String,
     },
+
+    /// Serialize JSON entries to Parquet.
+    ToParquet {
+        /// Input files.
+        #[arg(required = true)]
+        input: Vec<String>,
+
+        /// Output file path (if not provided, defaults to 'output.parquet').
+        #[arg(short, long, default_value = "")]
+        output: String,
+    },
 }
 
 fn main() -> Maybe {
@@ -53,6 +65,10 @@ fn main() -> Maybe {
 fn run_cmd(cmd: Cmd) -> Maybe<usize> {
     match cmd {
         Cmd::CountFields { input, output } => count_fields_cmd(input, output),
+        Cmd::ToParquet { input, output } => {
+            crate::parquet::run_to_parquet(input, output)?;
+            Ok(0)
+        }
     }
 }
 

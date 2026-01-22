@@ -1,4 +1,4 @@
-use sonic_rs::{JsonType, JsonValueTrait, ObjectJsonIter, to_object_iter};
+use sonic_rs::{to_object_iter, JsonType, JsonValueTrait, ObjectJsonIter};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::BufRead;
@@ -55,4 +55,72 @@ pub fn count_fields_from_reader<R: BufRead>(reader: R) -> Maybe<FieldCounts> {
         map: total_counts,
         nbytes,
     })
+}
+
+#[derive(Debug, Default)]
+pub struct ParquetRow {
+    pub score: Option<i64>,
+    pub author: Option<String>,
+    pub title: Option<String>,
+    pub subreddit: Option<String>,
+    pub subreddit_id: Option<String>,
+    pub subreddit_name_prefixed: Option<String>,
+}
+
+pub fn extract_parquet_row(line: &str) -> Option<ParquetRow> {
+    let iter = to_object_iter(line);
+    let mut row = ParquetRow::default();
+    let mut skip = false;
+
+    for (key, value) in iter.filter_map(|res| res.ok()) {
+        match &*key {
+            "selftext" => {
+                if value.get_type() == JsonType::String {
+                    if let Some(s) = value.as_str() {
+                        if s == "[deleted]" {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            "score" => {
+                if value.get_type() == JsonType::Number {
+                    row.score = value.as_i64();
+                }
+            }
+            "author" => {
+                if value.get_type() == JsonType::String {
+                    row.author = value.as_str().map(|s| s.to_string());
+                }
+            }
+            "title" => {
+                if value.get_type() == JsonType::String {
+                    row.title = value.as_str().map(|s| s.to_string());
+                }
+            }
+            "subreddit" => {
+                if value.get_type() == JsonType::String {
+                    row.subreddit = value.as_str().map(|s| s.to_string());
+                }
+            }
+            "subreddit_id" => {
+                if value.get_type() == JsonType::String {
+                    row.subreddit_id = value.as_str().map(|s| s.to_string());
+                }
+            }
+            "subreddit_name_prefixed" => {
+                if value.get_type() == JsonType::String {
+                    row.subreddit_name_prefixed = value.as_str().map(|s| s.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if skip {
+        None
+    } else {
+        Some(row)
+    }
 }
