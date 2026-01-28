@@ -1,4 +1,4 @@
-use sonic_rs::{to_object_iter, JsonType, JsonValueTrait, ObjectJsonIter};
+use sonic_rs::{JsonType, JsonValueTrait, ObjectJsonIter, to_object_iter};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::BufRead;
@@ -75,13 +75,12 @@ pub fn extract_parquet_row(line: &str) -> Option<ParquetRow> {
     for (key, value) in iter.filter_map(|res| res.ok()) {
         match &*key {
             "selftext" => {
-                if value.get_type() == JsonType::String {
-                    if let Some(s) = value.as_str() {
-                        if s == "[deleted]" {
-                            skip = true;
-                            break;
-                        }
-                    }
+                if value.get_type() == JsonType::String
+                    && let Some(s) = value.as_str()
+                    && s == "[deleted]"
+                {
+                    skip = true;
+                    break;
                 }
             }
             "score" => {
@@ -118,9 +117,5 @@ pub fn extract_parquet_row(line: &str) -> Option<ParquetRow> {
         }
     }
 
-    if skip {
-        None
-    } else {
-        Some(row)
-    }
+    if skip { None } else { Some(row) }
 }

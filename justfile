@@ -27,7 +27,7 @@ clean:
     cargo clean
 
 # Format code
-fmt:
+format:
     cargo fmt
 
 # Profile with perf (record)

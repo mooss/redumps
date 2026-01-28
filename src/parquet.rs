@@ -10,7 +10,7 @@ use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
 use crate::io::{foreach_line, open_file_or_zstd};
-use crate::json::{extract_parquet_row, ParquetRow};
+use crate::json::{ParquetRow, extract_parquet_row};
 use crate::utils::Maybe;
 
 const BATCH_SIZE: usize = 64_000;
