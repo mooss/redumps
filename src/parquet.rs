@@ -44,9 +44,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
                     ];
 
                     // Determine final output path
-                    let final_path = if output_path.is_empty() {
-                        "output.parquet".to_string()
-                    } else {
+                    let final_path = {
                         let p = Path::new(&output_path);
                         if p.is_dir() {
                             let stem = Path::new(&in_path)

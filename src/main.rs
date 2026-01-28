@@ -38,8 +38,8 @@ enum Cmd {
         #[arg(required = true)]
         input: Vec<String>,
 
-        /// Output file path (if not provided, defaults to 'output.parquet').
-        #[arg(short, long, default_value = "")]
+        /// Output directory (filenames will be deduced from input filenames).
+        #[arg(short, long, required = true)]
         output: String,
     },
 }
