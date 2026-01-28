@@ -15,13 +15,16 @@ use crate::utils::Maybe;
 
 const BATCH_SIZE: usize = 64_000;
 
-pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<()> {
+pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<usize> {
     let mut writer: Option<ParquetWriterWrapper> = None;
     let mut metadata_found = false;
+    let mut total_bytes: usize = 0;
 
     for in_path in input_files {
         let reader = open_file_or_zstd(&in_path)?;
         foreach_line(reader, |line| {
+            total_bytes += line.len();
+
             if let Some(row) = extract_parquet_row(line) {
                 if !metadata_found {
                     // Extract metadata from the first valid row
@@ -70,7 +73,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<()
     if let Some(mut w) = writer {
         w.close()?;
     }
-    Ok(())
+    Ok(total_bytes)
 }
 
 struct ParquetWriterWrapper {

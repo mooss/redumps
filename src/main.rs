@@ -66,8 +66,8 @@ fn run_cmd(cmd: Cmd) -> Maybe<usize> {
     match cmd {
         Cmd::CountFields { input, output } => count_fields_cmd(input, output),
         Cmd::ToParquet { input, output } => {
-            crate::parquet::run_to_parquet(input, output)?;
-            Ok(0)
+            let nbytes = crate::parquet::run_to_parquet(input, output)?;
+            Ok(nbytes)
         }
     }
 }
