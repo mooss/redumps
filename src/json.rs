@@ -75,8 +75,7 @@ pub fn extract_parquet_row(line: &str) -> Option<ParquetRow> {
     for (key, value) in iter.filter_map(|res| res.ok()) {
         match &*key {
             "selftext" => {
-                if value.get_type() == JsonType::String
-                    && let Some(s) = value.as_str()
+                if let Some(s) = value.as_str()
                     && s == "[deleted]"
                 {
                     skip = true;
