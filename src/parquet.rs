@@ -45,16 +45,11 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
 
                     // Determine final output path
                     let final_path = {
-                        let p = Path::new(&output_path);
-                        if p.is_dir() {
-                            let stem = Path::new(&in_path)
-                                .file_stem()
-                                .unwrap_or_default()
-                                .to_string_lossy();
-                            format!("{}/{}.parquet", output_path, stem)
-                        } else {
-                            output_path.clone()
-                        }
+                        let stem = Path::new(&in_path)
+                            .file_stem()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+                        format!("{}/{}.parquet", output_path, stem)
                     };
 
                     writer = Some(ParquetWriterWrapper::new(&final_path, meta).unwrap());
