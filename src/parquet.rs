@@ -10,7 +10,7 @@ use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
 use crate::io::{foreach_line, open_file_or_zstd};
-use crate::json::{ParquetRow, extract_parquet_row};
+use crate::json_to_parquet::{ParquetRow, json_entry_to_parquet_row};
 use crate::utils::Maybe;
 
 const BATCH_SIZE: usize = 64_000;
@@ -25,7 +25,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
         foreach_line(reader, |line| {
             total_bytes += line.len();
 
-            if let Some(row) = extract_parquet_row(line) {
+            if let Some(row) = json_entry_to_parquet_row(line) {
                 if !metadata_found {
                     // Extract metadata from the first valid row
                     let meta = vec![
