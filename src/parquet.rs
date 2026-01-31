@@ -15,6 +15,97 @@ use crate::utils::Maybe;
 
 const BATCH_SIZE: usize = 64_000;
 
+/// Column encapsulates a column's builder, schema field, and value extractor.
+enum Column {
+    String(StringBuilder, Field, fn(&ParquetRow) -> Option<&str>),
+    Int64(Int64Builder, Field, fn(&ParquetRow) -> Option<i64>),
+    Boolean(BooleanBuilder, Field, fn(&ParquetRow) -> Option<bool>),
+    Float64(Float64Builder, Field, fn(&ParquetRow) -> Option<f64>),
+}
+
+impl Column {
+    fn new_string(name: &str, f: fn(&ParquetRow) -> Option<&str>) -> Self {
+        Self::String(
+            StringBuilder::new(),
+            Field::new(name, DataType::Utf8, true),
+            f,
+        )
+    }
+
+    fn new_int64(name: &str, f: fn(&ParquetRow) -> Option<i64>) -> Self {
+        Self::Int64(
+            Int64Builder::new(),
+            Field::new(name, DataType::Int64, true),
+            f,
+        )
+    }
+
+    fn new_boolean(name: &str, f: fn(&ParquetRow) -> Option<bool>) -> Self {
+        Self::Boolean(
+            BooleanBuilder::new(),
+            Field::new(name, DataType::Boolean, true),
+            f,
+        )
+    }
+
+    fn new_float64(name: &str, f: fn(&ParquetRow) -> Option<f64>) -> Self {
+        Self::Float64(
+            Float64Builder::new(),
+            Field::new(name, DataType::Float64, true),
+            f,
+        )
+    }
+
+    fn field(&self) -> Field {
+        match self {
+            Self::String(_, field, _) => field.clone(),
+            Self::Int64(_, field, _) => field.clone(),
+            Self::Boolean(_, field, _) => field.clone(),
+            Self::Float64(_, field, _) => field.clone(),
+        }
+    }
+
+    fn append(&mut self, row: &ParquetRow) {
+        match self {
+            Self::String(builder, _, extractor) => builder.append_option(extractor(row)),
+            Self::Int64(builder, _, extractor) => builder.append_option(extractor(row)),
+            Self::Boolean(builder, _, extractor) => builder.append_option(extractor(row)),
+            Self::Float64(builder, _, extractor) => builder.append_option(extractor(row)),
+        }
+    }
+
+    fn finish(&mut self) -> Arc<dyn arrow::array::Array> {
+        match self {
+            Self::String(builder, _, _) => Arc::new(builder.finish()),
+            Self::Int64(builder, _, _) => Arc::new(builder.finish()),
+            Self::Boolean(builder, _, _) => Arc::new(builder.finish()),
+            Self::Float64(builder, _, _) => Arc::new(builder.finish()),
+        }
+    }
+
+    fn reset(&mut self) {
+        match self {
+            Self::String(builder, _, _) => *builder = StringBuilder::new(),
+            Self::Int64(builder, _, _) => *builder = Int64Builder::new(),
+            Self::Boolean(builder, _, _) => *builder = BooleanBuilder::new(),
+            Self::Float64(builder, _, _) => *builder = Float64Builder::new(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::String(builder, _, _) => builder.len(),
+            Self::Int64(builder, _, _) => builder.len(),
+            Self::Boolean(builder, _, _) => builder.len(),
+            Self::Float64(builder, _, _) => builder.len(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<usize> {
     let mut writer: Option<ParquetWriterWrapper> = None;
     let mut metadata_found = false;
@@ -27,7 +118,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
 
             if let Some(row) = json_entry_to_parquet_row(line) {
                 if !metadata_found {
-                    // Extract metadata from the first valid row
+                    // Extract metadata from the first valid row.
                     let meta = vec![
                         (
                             "subreddit".to_string(),
@@ -43,7 +134,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
                         ),
                     ];
 
-                    // Determine final output path
+                    // Determine final output path.
                     let final_path = {
                         let stem = Path::new(&in_path)
                             .file_stem()
@@ -72,53 +163,36 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
 struct ParquetWriterWrapper {
     writer: Option<ArrowWriter<File>>,
     schema: Schema,
-
-    // Field builders (maintain alphabetical order).
-    author_builder: StringBuilder,
-    created_utc_builder: Int64Builder,
-    crosspost_parent_builder: StringBuilder,
-    downs_builder: Int64Builder,
-    id_builder: StringBuilder,
-    is_gallery_builder: BooleanBuilder,
-    is_self_builder: BooleanBuilder,
-    is_video_builder: BooleanBuilder,
-    media_builder: StringBuilder,
-    num_comments_builder: Int64Builder,
-    over_18_builder: BooleanBuilder,
-    permalink_builder: StringBuilder,
-    score_builder: Int64Builder,
-    secure_media_builder: StringBuilder,
-    selftext_builder: StringBuilder,
-    title_builder: StringBuilder,
-    upvote_ratio_builder: Float64Builder,
-    ups_builder: Int64Builder,
-    url_builder: StringBuilder,
+    columns: Vec<Column>,
 }
 
 impl ParquetWriterWrapper {
     fn new(path: &str, metadata: Vec<(String, String)>) -> Maybe<Self> {
         let file = File::create(path)?;
-        let schema = Schema::new(vec![
-            Field::new("author", DataType::Utf8, true),
-            Field::new("created_utc", DataType::Int64, true),
-            Field::new("crosspost_parent", DataType::Utf8, true),
-            Field::new("downs", DataType::Int64, true),
-            Field::new("id", DataType::Utf8, true),
-            Field::new("is_gallery", DataType::Boolean, true),
-            Field::new("is_self", DataType::Boolean, true),
-            Field::new("is_video", DataType::Boolean, true),
-            Field::new("media", DataType::Utf8, true),
-            Field::new("num_comments", DataType::Int64, true),
-            Field::new("over_18", DataType::Boolean, true),
-            Field::new("permalink", DataType::Utf8, true),
-            Field::new("score", DataType::Int64, true),
-            Field::new("secure_media", DataType::Utf8, true),
-            Field::new("selftext", DataType::Utf8, true),
-            Field::new("title", DataType::Utf8, true),
-            Field::new("upvote_ratio", DataType::Float64, true),
-            Field::new("ups", DataType::Int64, true),
-            Field::new("url", DataType::Utf8, true),
-        ]);
+
+        let columns = vec![
+            Column::new_string("author", |r| r.author.as_deref()),
+            Column::new_int64("created_utc", |r| r.created_utc),
+            Column::new_string("crosspost_parent", |r| r.crosspost_parent.as_deref()),
+            Column::new_int64("downs", |r| r.downs),
+            Column::new_string("id", |r| r.id.as_deref()),
+            Column::new_boolean("is_gallery", |r| r.is_gallery),
+            Column::new_boolean("is_self", |r| r.is_self),
+            Column::new_boolean("is_video", |r| r.is_video),
+            Column::new_string("media", |r| r.media.as_deref()),
+            Column::new_int64("num_comments", |r| r.num_comments),
+            Column::new_boolean("over_18", |r| r.over_18),
+            Column::new_string("permalink", |r| r.permalink.as_deref()),
+            Column::new_int64("score", |r| r.score),
+            Column::new_string("secure_media", |r| r.secure_media.as_deref()),
+            Column::new_string("selftext", |r| r.selftext.as_deref()),
+            Column::new_string("title", |r| r.title.as_deref()),
+            Column::new_float64("upvote_ratio", |r| r.upvote_ratio),
+            Column::new_int64("ups", |r| r.ups),
+            Column::new_string("url", |r| r.url.as_deref()),
+        ];
+
+        let schema = Schema::new(columns.iter().map(|c| c.field()).collect::<Vec<_>>());
 
         let kv_metadata: Vec<KeyValue> = metadata
             .into_iter()
@@ -137,109 +211,34 @@ impl ParquetWriterWrapper {
         Ok(Self {
             writer: Some(writer),
             schema,
-            author_builder: StringBuilder::new(),
-            created_utc_builder: Int64Builder::new(),
-            crosspost_parent_builder: StringBuilder::new(),
-            downs_builder: Int64Builder::new(),
-            id_builder: StringBuilder::new(),
-            is_gallery_builder: BooleanBuilder::new(),
-            is_self_builder: BooleanBuilder::new(),
-            is_video_builder: BooleanBuilder::new(),
-            media_builder: StringBuilder::new(),
-            num_comments_builder: Int64Builder::new(),
-            over_18_builder: BooleanBuilder::new(),
-            permalink_builder: StringBuilder::new(),
-            score_builder: Int64Builder::new(),
-            secure_media_builder: StringBuilder::new(),
-            selftext_builder: StringBuilder::new(),
-            title_builder: StringBuilder::new(),
-            upvote_ratio_builder: Float64Builder::new(),
-            ups_builder: Int64Builder::new(),
-            url_builder: StringBuilder::new(),
+            columns,
         })
     }
 
     fn write_row(&mut self, row: ParquetRow) {
-        self.author_builder.append_option(row.author.as_deref());
-        self.created_utc_builder.append_option(row.created_utc);
-        self.crosspost_parent_builder
-            .append_option(row.crosspost_parent.as_deref());
-        self.downs_builder.append_option(row.downs);
-        self.id_builder.append_option(row.id.as_deref());
-        self.is_gallery_builder.append_option(row.is_gallery);
-        self.is_self_builder.append_option(row.is_self);
-        self.is_video_builder.append_option(row.is_video);
-        self.media_builder.append_option(row.media.as_deref());
-        self.num_comments_builder.append_option(row.num_comments);
-        self.over_18_builder.append_option(row.over_18);
-        self.permalink_builder
-            .append_option(row.permalink.as_deref());
-        self.score_builder.append_option(row.score);
-        self.secure_media_builder
-            .append_option(row.secure_media.as_deref());
-        self.selftext_builder.append_option(row.selftext.as_deref());
-        self.title_builder.append_option(row.title.as_deref());
-        self.upvote_ratio_builder.append_option(row.upvote_ratio);
-        self.ups_builder.append_option(row.ups);
-        self.url_builder.append_option(row.url.as_deref());
+        for col in &mut self.columns {
+            col.append(&row);
+        }
 
-        // Flush when we have enough rows (using score_builder length as a proxy)
-        if self.score_builder.len() >= BATCH_SIZE {
+        if self.columns.first().is_some_and(|c| c.len() >= BATCH_SIZE) {
             self.flush_batch();
         }
     }
 
     fn flush_batch(&mut self) {
-        if self.score_builder.is_empty() {
+        if self.columns.first().is_none_or(|c| c.is_empty()) {
             return;
         }
 
-        // Build arrays in the same order as the schema.
-        let arrays: Vec<Arc<dyn arrow::array::Array>> = vec![
-            Arc::new(self.author_builder.finish()),
-            Arc::new(self.created_utc_builder.finish()),
-            Arc::new(self.crosspost_parent_builder.finish()),
-            Arc::new(self.downs_builder.finish()),
-            Arc::new(self.id_builder.finish()),
-            Arc::new(self.is_gallery_builder.finish()),
-            Arc::new(self.is_self_builder.finish()),
-            Arc::new(self.is_video_builder.finish()),
-            Arc::new(self.media_builder.finish()),
-            Arc::new(self.num_comments_builder.finish()),
-            Arc::new(self.over_18_builder.finish()),
-            Arc::new(self.permalink_builder.finish()),
-            Arc::new(self.score_builder.finish()),
-            Arc::new(self.secure_media_builder.finish()),
-            Arc::new(self.selftext_builder.finish()),
-            Arc::new(self.title_builder.finish()),
-            Arc::new(self.upvote_ratio_builder.finish()),
-            Arc::new(self.ups_builder.finish()),
-            Arc::new(self.url_builder.finish()),
-        ];
+        let arrays: Vec<Arc<dyn arrow::array::Array>> =
+            self.columns.iter_mut().map(|c| c.finish()).collect();
 
         let batch = RecordBatch::try_new(Arc::new(self.schema.clone()), arrays).unwrap();
         self.writer.as_mut().unwrap().write(&batch).unwrap();
 
-        // Reset all builders for the next batch.
-        self.author_builder = StringBuilder::new();
-        self.created_utc_builder = Int64Builder::new();
-        self.crosspost_parent_builder = StringBuilder::new();
-        self.downs_builder = Int64Builder::new();
-        self.id_builder = StringBuilder::new();
-        self.is_gallery_builder = BooleanBuilder::new();
-        self.is_self_builder = BooleanBuilder::new();
-        self.is_video_builder = BooleanBuilder::new();
-        self.media_builder = StringBuilder::new();
-        self.num_comments_builder = Int64Builder::new();
-        self.over_18_builder = BooleanBuilder::new();
-        self.permalink_builder = StringBuilder::new();
-        self.score_builder = Int64Builder::new();
-        self.secure_media_builder = StringBuilder::new();
-        self.selftext_builder = StringBuilder::new();
-        self.title_builder = StringBuilder::new();
-        self.upvote_ratio_builder = Float64Builder::new();
-        self.ups_builder = Int64Builder::new();
-        self.url_builder = StringBuilder::new();
+        for col in &mut self.columns {
+            col.reset();
+        }
     }
 
     fn close(&mut self) -> Maybe<()> {
