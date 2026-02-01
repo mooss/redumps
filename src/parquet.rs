@@ -6,6 +6,7 @@ use arrow::array::{ArrayBuilder, BooleanBuilder, Float64Builder, Int64Builder, S
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::ArrowWriter;
+use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
@@ -204,6 +205,7 @@ impl ParquetWriterWrapper {
 
         let props = WriterProperties::builder()
             .set_key_value_metadata(Some(kv_metadata))
+            .set_compression(Compression::ZSTD(ZstdLevel::try_new(9).unwrap()))
             .build();
 
         let writer = ArrowWriter::try_new(file, Arc::new(schema.clone()), Some(props))?;
