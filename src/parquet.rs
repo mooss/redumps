@@ -1,3 +1,5 @@
+pub mod json_to_parquet;
+
 use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
@@ -5,13 +7,14 @@ use std::sync::Arc;
 use arrow::array::{ArrayBuilder, BooleanBuilder, Float64Builder, Int64Builder, StringBuilder};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+
 use parquet::arrow::ArrowWriter;
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
 use crate::io::{foreach_line, open_file_or_zstd};
-use crate::json_to_parquet::{ParquetRow, json_entry_to_parquet_row};
+use crate::parquet::json_to_parquet::{ParquetRow, json_entry_to_parquet_row};
 use crate::utils::Maybe;
 
 const BATCH_SIZE: usize = 64_000;

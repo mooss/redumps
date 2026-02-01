@@ -3,7 +3,6 @@ use std::{io::Write, time::Instant};
 
 mod io;
 mod json;
-mod json_to_parquet;
 mod parquet;
 mod utils;
 use crate::io::{open_file_or_zstd, prepare_output_writer};
