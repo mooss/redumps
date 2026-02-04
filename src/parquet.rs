@@ -17,17 +17,26 @@ use crate::io::{foreach_line, open_file_or_zstd};
 use crate::parquet::json_to_parquet::{ParquetRow, json_entry_to_parquet_row};
 use crate::utils::Maybe;
 
+/// Number of rows to accumulate before flushing a batch to disk.
 const BATCH_SIZE: usize = 64_000;
 
-/// Column encapsulates a column's builder, schema field, and value extractor.
+/// Represents a column in the Parquet output, as a tuple of:
+///  1. Arrow array builder (accumulates column data).
+///  2. Arrow field.
+///  3. Value extractor.
 enum Column {
+    /// String column.
     String(StringBuilder, Field, fn(&ParquetRow) -> Option<&str>),
+    /// 64 bit integer column.
     Int64(Int64Builder, Field, fn(&ParquetRow) -> Option<i64>),
+    /// Boolean column.
     Boolean(BooleanBuilder, Field, fn(&ParquetRow) -> Option<bool>),
+    /// 64 bit float column.
     Float64(Float64Builder, Field, fn(&ParquetRow) -> Option<f64>),
 }
 
 impl Column {
+    /// Construct a new string column.
     fn new_string(name: &str, f: fn(&ParquetRow) -> Option<&str>) -> Self {
         Self::String(
             StringBuilder::new(),
@@ -36,6 +45,7 @@ impl Column {
         )
     }
 
+    /// Construct a new 64 bit integer column.
     fn new_int64(name: &str, f: fn(&ParquetRow) -> Option<i64>) -> Self {
         Self::Int64(
             Int64Builder::new(),
@@ -44,6 +54,7 @@ impl Column {
         )
     }
 
+    /// Construct a new boolean column.
     fn new_boolean(name: &str, f: fn(&ParquetRow) -> Option<bool>) -> Self {
         Self::Boolean(
             BooleanBuilder::new(),
@@ -52,6 +63,7 @@ impl Column {
         )
     }
 
+    /// Construct a new 64 bit float column.
     fn new_float64(name: &str, f: fn(&ParquetRow) -> Option<f64>) -> Self {
         Self::Float64(
             Float64Builder::new(),
@@ -60,15 +72,17 @@ impl Column {
         )
     }
 
-    fn field(&self) -> Field {
+    /// Return the Arrow field associated with this column.
+    fn field(&self) -> &Field {
         match self {
-            Self::String(_, field, _) => field.clone(),
-            Self::Int64(_, field, _) => field.clone(),
-            Self::Boolean(_, field, _) => field.clone(),
-            Self::Float64(_, field, _) => field.clone(),
+            Self::String(_, field, _) => field,
+            Self::Int64(_, field, _) => field,
+            Self::Boolean(_, field, _) => field,
+            Self::Float64(_, field, _) => field,
         }
     }
 
+    /// Append a value from `row` to the underlying builder.
     fn append(&mut self, row: &ParquetRow) {
         match self {
             Self::String(builder, _, extractor) => builder.append_option(extractor(row)),
@@ -78,6 +92,7 @@ impl Column {
         }
     }
 
+    /// Finalise the builder and return the resulting Arrow array.
     fn finish(&mut self) -> Arc<dyn arrow::array::Array> {
         match self {
             Self::String(builder, _, _) => Arc::new(builder.finish()),
@@ -87,6 +102,7 @@ impl Column {
         }
     }
 
+    /// Reset the builder to its initial empty state.
     fn reset(&mut self) {
         match self {
             Self::String(builder, _, _) => *builder = StringBuilder::new(),
@@ -96,6 +112,7 @@ impl Column {
         }
     }
 
+    /// Current number of appended values in the column.
     fn len(&self) -> usize {
         match self {
             Self::String(builder, _, _) => builder.len(),
@@ -105,13 +122,23 @@ impl Column {
         }
     }
 
+    /// Whether the column currently holds no values.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
 
+/// Convert a collection of JSON line files into a Parquet file, returning the total number of
+/// processed bytes on success.
+///
+/// * `input_files` - Paths to JSON line files (plain or ZSTD-compressed).
+/// * `output_path` - Directory where the resulting Parquet files will be placed.
+///
+/// The function creates one Parquet file per input file, preserving the original filename stem.
+/// It also extracts metadata from the first successfully row to embed in the Parquet file's
+/// key-value metadata.
 pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<usize> {
-    let mut writer: Option<ParquetWriterWrapper> = None;
+    let mut writer: Option<ParquetBatchWriter> = None;
     let mut metadata_found = false;
     let mut total_bytes: usize = 0;
 
@@ -147,7 +174,7 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
                         format!("{}/{}.parquet", output_path, stem)
                     };
 
-                    writer = Some(ParquetWriterWrapper::new(&final_path, meta).unwrap());
+                    writer = Some(ParquetBatchWriter::new(&final_path, meta).unwrap());
                     metadata_found = true;
                 }
 
@@ -164,13 +191,14 @@ pub fn run_to_parquet(input_files: Vec<String>, output_path: String) -> Maybe<us
     Ok(total_bytes)
 }
 
-struct ParquetWriterWrapper {
+struct ParquetBatchWriter {
     writer: Option<ArrowWriter<File>>,
     schema: Schema,
     columns: Vec<Column>,
 }
 
-impl ParquetWriterWrapper {
+impl ParquetBatchWriter {
+    /// Create a new writer for `path`, embedding the supplied key-value `metadata`.
     fn new(path: &str, metadata: Vec<(String, String)>) -> Maybe<Self> {
         let file = File::create(path)?;
 
@@ -196,7 +224,12 @@ impl ParquetWriterWrapper {
             Column::new_string("url", |r| r.url.as_deref()),
         ];
 
-        let schema = Schema::new(columns.iter().map(|c| c.field()).collect::<Vec<_>>());
+        let schema = Schema::new(
+            columns
+                .iter()
+                .map(|c| c.field().clone())
+                .collect::<Vec<_>>(),
+        );
 
         let kv_metadata: Vec<KeyValue> = metadata
             .into_iter()
@@ -220,6 +253,7 @@ impl ParquetWriterWrapper {
         })
     }
 
+    /// Append a `ParquetRow` to the current batch.
     fn write_row(&mut self, row: ParquetRow) {
         for col in &mut self.columns {
             col.append(&row);
@@ -230,6 +264,7 @@ impl ParquetWriterWrapper {
         }
     }
 
+    /// Write the accumulated batch to the output file.
     fn flush_batch(&mut self) {
         if self.columns.first().is_none_or(|c| c.is_empty()) {
             return;
@@ -246,6 +281,7 @@ impl ParquetWriterWrapper {
         }
     }
 
+    /// Write any remaining row and close the output file.
     fn close(&mut self) -> Maybe<()> {
         self.flush_batch();
         self.writer.take().unwrap().close()?;
