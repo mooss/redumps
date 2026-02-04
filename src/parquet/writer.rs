@@ -9,7 +9,7 @@ use parquet::file::metadata::KeyValue;
 use parquet::file::properties::WriterProperties;
 
 use crate::parquet::column::Column;
-use crate::parquet::json_to_parquet::ParquetRow;
+use crate::parquet::json::ParquetRow;
 use crate::utils::Maybe;
 
 /// Number of rows to accumulate before flushing a batch to disk.

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use arrow::array::{ArrayBuilder, BooleanBuilder, Float64Builder, Int64Builder, StringBuilder};
 use arrow::datatypes::{DataType, Field};
 
-use crate::parquet::json_to_parquet::ParquetRow;
+use crate::parquet::json::ParquetRow;
 
 /// Represents a column in the Parquet output, as a tuple of:
 ///  1. Arrow array builder (accumulates column data).

@@ -1,11 +1,11 @@
 pub mod column;
-pub mod json_to_parquet;
+pub mod json;
 pub mod writer;
 
 use std::path::Path;
 
 use crate::io::{foreach_line, open_file_or_zstd};
-use crate::parquet::json_to_parquet::json_entry_to_parquet_row;
+use crate::parquet::json::json_entry_to_parquet_row;
 use crate::parquet::writer::ParquetBatchWriter;
 use crate::utils::Maybe;
 
